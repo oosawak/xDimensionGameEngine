@@ -1,0 +1,2450 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10141e">
+<title>xDimension Game Engine v0.0.16 — Connected Worlds × Three.js × WASM</title>
+<style>
+:root{color-scheme:dark;--bg:#10141e;--panel:#171d2a;--muted:#98a8bf;--gold:#eac68d;--line:#343c4b;--mint:#88edcf}
+*{box-sizing:border-box}html,body{padding:0;margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);color:#f5f0e4}
+#app{position:relative;height:100dvh;min-height:0}
+#stage{height:100%;min-width:0;position:relative;overflow:hidden;background:linear-gradient(165deg,#384d70,#182b3d);touch-action:none}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+#world-clock-hud{position:absolute;z-index:5;left:16px;top:185px;padding:8px 11px;background:#0f2433dc;border:1px solid #d8b77891;border-radius:10px;pointer-events:none;color:#ffe8ba;font-size:12px;font-variant-numeric:tabular-nums;backdrop-filter:blur(6px)}
+#world-clock-hud small{display:block;font-size:10px;color:#c7d9e1;margin-top:2px}
+@media(max-width:520px){#world-clock-hud{left:12px;top:181px;font-size:11px;padding:6px 8px}}
+@media(max-height:480px){#world-clock-hud{top:89px;left:158px;font-size:10px;padding:4px 6px}}
+#location-hud{position:absolute;left:16px;top:108px;z-index:4;padding:8px 12px;background:#0f2534d9;border:1px solid #d8b7788c;border-radius:10px;pointer-events:none;font-size:11px;line-height:1.5;max-width:200px;color:#fff4d7;backdrop-filter:blur(6px)}#location-hud small{display:block;color:#c2d8d3;font-size:10px} @media(max-width:520px){#location-hud{top:118px;left:12px;font-size:10px;max-width:145px;padding:6px 8px}}
+#film-overlay{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.48;
+ background:radial-gradient(ellipse 75% 72% at 50% 48%,transparent 43%,rgba(14,21,31,.25) 77%,rgba(8,13,24,.58) 100%),linear-gradient(180deg,rgba(255,197,121,.08),transparent 26%,transparent 76%,rgba(12,20,26,.12))}
+.top,.hud{z-index:2}
+.look-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 12px}
+.look-presets button{background:#263548;border:1px solid #46556d;border-radius:9px;padding:10px 6px;font-size:12px;color:#e9edf0;cursor:pointer;font-weight:700}
+.look-presets button[aria-pressed="true"]{background:#483d31;border-color:#e1b97c;color:#ffe7ba}
+.look-note{font-size:11px;color:var(--muted);line-height:1.6}
+
+.top{position:absolute;left:25px;top:22px;pointer-events:none;filter:drop-shadow(0 2px 6px #0008)}
+.top small{letter-spacing:.28em;color:var(--gold);font-size:11px;font-weight:700}.top h1{font-size:clamp(22px,3.6vw,46px);letter-spacing:.075em;margin:5px 0 0;font-weight:800;line-height:1}.top p{font-size:12px;margin-top:8px;color:#e0e7ef}
+#notice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;padding:18px 22px;border:1px solid #5b6c7b;border-radius:12px;background:#0c1426e8;max-width:min(420px,90%);text-align:center;line-height:1.7}
+#notice.good{display:none}
+.hud{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:#111b27c9;border:1px solid #ffffff21;padding:11px 14px;border-radius:11px;backdrop-filter:blur(8px);font-size:12px;min-width:210px;line-height:1.6}
+.hud b{color:var(--mint)}.hud span{color:#d8e0e9}.hud .status{font-size:10px;letter-spacing:.13em;color:#e6c38e;margin-bottom:4px}
+#panel{position:absolute;top:70px;right:15px;width:min(340px,calc(100vw - 30px));max-height:clamp(110px,calc(100dvh - 260px),700px);background:#171d2aef;border:1px solid #46526a;border-radius:14px;min-height:0;overflow:auto;padding:18px 18px 22px;scrollbar-color:#596172 transparent;z-index:9;box-shadow:0 12px 50px #05080bd1;backdrop-filter:blur(18px)}
+#panel[hidden]{display:none!important}
+#panel-toggle{position:absolute;right:16px;top:16px;z-index:11;min-width:104px;min-height:42px;padding:9px 15px;border:1px solid #bba77a7c;border-radius:11px;background:#142030eb;color:#f4e9d1;font-size:13px;font-weight:800;letter-spacing:.06em;cursor:pointer;backdrop-filter:blur(12px)}
+#panel-toggle:hover{background:#354057}
+.tuning-group{border:1px solid #475469;background:#1b2634;border-radius:10px;padding:0 10px 10px;margin-top:12px}
+.tuning-group summary{padding:11px 4px;cursor:pointer;color:#eac68d;font-size:12px;letter-spacing:.1em;font-weight:800}
+.tuning-select,.tune-file-control{display:block;width:100%;margin-top:8px;padding:9px 10px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;font-size:13px}
+.tune-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
+.tune-status{min-height:20px;color:#a9e4cc;font-size:11px;line-height:1.5;margin:10px 0 0}
+.tune-small{font-size:11px;line-height:1.6;color:var(--muted)}
+.tune-button{font-size:11px;padding:10px 4px}
+#tune-import{display:none}
+
+.panel-heading{display:flex;align-items:center;gap:12px;margin-bottom:25px}.logo{background:linear-gradient(130deg,#e9bd7a,#a66f45);color:#1d2126;border-radius:9px;padding:10px;font-size:22px;font-weight:900}.panel-heading strong{font-size:15px;letter-spacing:.06em}.panel-heading small{display:block;color:var(--muted);margin-top:3px;font-size:10px}
+.section{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:.2em;margin:24px 0 13px}.field{margin:14px 0}.field .line{display:flex;justify-content:space-between;align-items:baseline;font-size:12px}.field .line output{font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px}
+input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointer}
+.switch{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:12px;border-bottom:1px solid #ffffff0c;cursor:pointer}.switch input{appearance:none;width:32px;height:18px;border-radius:20px;background:#414857;position:relative;margin:0}.switch input:checked{background:#bca072}.switch input:after{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;border-radius:50%;background:#f9faf9;transition:transform .15s}.switch input:checked:after{transform:translateX(14px)}
+.keycaps{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0 0}.keycaps kbd{min-width:28px;text-align:center;background:#252d3c;border:1px solid #40495a;padding:5px 6px;border-radius:5px;font-size:11px}.help{font-size:11px;line-height:1.7;color:var(--muted);margin:8px 0}
+.btn{display:block;width:100%;padding:10px 9px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px}.btn:hover{background:#364459}
+.footer{margin-top:25px;font-size:10px;line-height:1.6;color:#8492a7}.wasm-badge{font-size:11px;padding:8px 10px;border:1px solid #526552;background:#263a31;border-radius:8px;color:#a7f2c7;margin-top:10px}
+#pad{display:block;position:absolute;left:16px;bottom:max(22px,env(safe-area-inset-bottom));width:144px;height:144px;touch-action:none;pointer-events:auto;z-index:12}
+.pbtn{position:absolute;width:47px;height:47px;border-radius:11px;background:#122232a8;border:1px solid #ffffff63;color:white;font-size:21px;touch-action:none;user-select:none;display:grid;place-items:center;backdrop-filter:blur(7px);cursor:pointer}
+.pbtn:active,.pbtn.pressed{background:#c6a36bce;color:#171b24}
+#actions{position:absolute;right:16px;bottom:max(30px,env(safe-area-inset-bottom));display:flex;gap:8px;z-index:12;align-items:end}
+.actbtn{width:68px;height:58px;border-radius:14px;background:#192a3cc9;border:1px solid #ffffff70;color:#fff;font-weight:800;letter-spacing:.03em;touch-action:none;user-select:none;backdrop-filter:blur(9px)}
+.actbtn:active,.actbtn.pressed{background:#b68c4fbf}
+#attack-btn{border-color:#e3b779;color:#ffdda0}
+#char-state{color:#d8e9c7}
+#room-wall-message{display:none;position:absolute;top:65px;left:50%;transform:translateX(-50%);z-index:8;padding:9px 14px;border:1px solid #edca83a6;border-radius:9px;background:#152436de;color:#ffe3b1;font-size:12px;pointer-events:none;text-align:center;max-width:78vw;white-space:nowrap}
+#room-wall-message.active{display:block}
+#interact-btn{display:none;position:absolute;right:18px;bottom:max(104px,calc(104px + env(safe-area-inset-bottom)));z-index:13;min-width:100px;min-height:48px;padding:8px 13px;background:#3c3527ee;border:1px solid #e2bc83;border-radius:12px;color:#ffe9b8;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 22px #0007}
+#interact-btn.active{display:block}
+#door-prompt{display:none;position:absolute;left:50%;top:100px;transform:translateX(-50%);z-index:5;background:#141f2bdc;border:1px solid #bb9e67;border-radius:10px;color:#ffe9c5;padding:8px 13px;font-size:12px;font-weight:750;text-align:center;pointer-events:none;max-width:min(330px,75vw)}
+#door-prompt.active{display:block}
+#puzzle-hud{display:none;position:absolute;z-index:5;left:16px;top:265px;max-width:250px;border:1px solid #f0c87e9e;border-radius:11px;padding:8px 12px;background:#152c2be9;color:#ffe9b1;font-size:12px;line-height:1.45;pointer-events:none;box-shadow:0 2px 18px #0006}
+#puzzle-hud.active{display:block}#puzzle-hud small{display:block;color:#c5e2da;margin-top:3px;font-size:10px}
+@media(max-width:520px){#puzzle-hud{left:12px;top:258px;max-width:176px;font-size:11px;padding:7px 9px}}
+@media(max-height:480px){#puzzle-hud{top:140px;left:12px;max-width:165px}}
+
+@media(max-width:520px){#interact-btn{right:8px;bottom:max(93px,calc(93px + env(safe-area-inset-bottom)));min-width:78px;font-size:11px}#door-prompt{top:95px;font-size:10px;padding:7px 9px}}
+
+#up{left:48px;top:0}#left{left:0;top:48px}#right{left:96px;top:48px}#down{left:48px;top:96px}
+@media(max-width:800px){.keycaps{display:none}.top{top:18px;left:15px}.top h1{font-size:22px}.top p{max-width:150px;line-height:1.5;font-size:10px}.hud{bottom:7px;left:50%;right:auto;transform:translateX(-50%);font-size:9px;padding:6px 8px;min-width:0;pointer-events:none;opacity:.87}.hud div:nth-child(3){display:none}#panel{top:67px;right:10px;max-height:clamp(110px,calc(100dvh - 260px),700px)}}
+@media(max-width:520px){#actions{right:8px;bottom:max(26px,env(safe-area-inset-bottom));gap:4px}.actbtn{width:46px;height:52px;font-size:9px}#panel{padding:12px;max-height:clamp(110px,calc(100dvh - 255px),700px)}#panel .field{margin:10px 0}#panel .help{font-size:10px}#panel .panel-heading{margin-bottom:14px}#panel .section{margin:15px 0 8px}#panel .footer{display:none}.hud{left:50%;right:auto;bottom:1px;max-width:165px;font-size:8px;transform:translateX(-50%)}#pad{bottom:max(20px,env(safe-area-inset-bottom));left:10px}.top{left:12px;top:14px}.top h1{font-size:19px}#panel-toggle{right:10px;top:10px;min-height:44px}}
+@media(max-width:360px){#pad{transform:scale(.84);transform-origin:bottom left}#actions{transform:scale(.93);transform-origin:bottom right;right:4px}.hud{display:none}}
+@media(max-height:450px){.top p{display:none}.top h1{font-size:19px}#panel{top:62px;max-height:clamp(98px,calc(100dvh - 215px),250px)}#pad{transform:scale(.72);transform-origin:bottom left}#actions{transform:scale(.85);transform-origin:bottom right}}
+#map-fade{position:absolute;inset:0;z-index:29;background:#0d1620;opacity:0;pointer-events:none;transition:opacity .24s ease;display:flex;align-items:center;justify-content:center}
+#map-fade.active{opacity:1;pointer-events:auto}
+#map-fade-label{font-size:clamp(16px,3vw,29px);font-weight:700;letter-spacing:.16em;color:#eadbb9;text-align:center;text-shadow:0 2px 18px #000}
+</style>
+<style data-added="sprite-info-v15">.sprite-info{border:1px solid #516077;border-radius:10px;padding:10px 12px;margin:12px 0;background:#111a29ed;color:#dceaf1;font-size:11px;line-height:1.75}.sprite-info strong{font-size:12px;color:#eac68d}.sprite-info dl{display:grid;grid-template-columns:minmax(105px,40%) 1fr;gap:2px 8px;margin:5px 0 0}.sprite-info dt{color:#aabaca}.sprite-info dd{margin:0;overflow-wrap:anywhere}.sprite-info .warn{color:#ffce8c}</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app">
+  <main id="stage">
+    <div id="film-overlay" aria-hidden="true"></div>
+    <div id="door-prompt" role="status" aria-live="polite"></div>
+    <div id="location-hud" aria-live="off"><strong id="region-name">石畳の村</strong><small id="trail-guide">南へ進むと、こもれび街道 → 青葉の町</small></div>
+    <div id="world-clock-hud" aria-live="off"><strong id="world-clock-label">Day 1 · 17:00</strong><small id="world-clock-phase">夕方 · 進行中</small><small id="world-season-label">春 · 1年目</small></div>
+    <div id="puzzle-hud" role="status" aria-live="polite"><strong id="puzzle-progress">石のスイッチ · 0 / 2</strong><small id="puzzle-guide">木箱をEキー／画面ボタンで押す</small></div>
+    <div id="map-fade" aria-hidden="true"><span id="map-fade-label">MAP CHANGE</span></div>
+    <div id="room-wall-message" aria-live="off">壁です。別の方向へ移動できます</div>
+  <button type="button" id="interact-btn" aria-label="玄関に入る・家から出る">E · 入る</button>
+    <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="false">⚙ 設定を開く</button>
+    <div class="top"><small>XDIMENSION · THREE.JS × WASM · v0.0.16</small><h1>xDimension <span style="display:block;font-size:.6em;margin-top:4px;color:#eac68d">GAME ENGINE</span></h1><p>Three towns · interactive puzzles · connected worlds · WASM</p></div>
+    <div id="notice">Three.jsをCDNから読み込んでいます。<br>インターネット接続が必要です。</div>
+    <div id="pad" aria-label="移動コントローラー（常時表示）"><button class="pbtn" id="up" data-key="ArrowUp">▲</button><button class="pbtn" id="left" data-key="ArrowLeft">◀</button><button class="pbtn" id="right" data-key="ArrowRight">▶</button><button class="pbtn" id="down" data-key="ArrowDown">▼</button></div>
+    <div id="actions" aria-label="アクション操作（常時表示）"><button type="button" class="actbtn" id="run-btn">RUN</button><button type="button" class="actbtn" id="jump-btn">JUMP</button><button type="button" class="actbtn" id="attack-btn">ATTACK</button></div>
+    <div class="hud"><div class="status">● LIVE SIMULATION / <span id="backend-hud">INITIALIZING</span></div><div>座標 <b id="coords">0.00, 0.00, 3.50</b>　衝突 <b id="hits">0</b></div><div>WASM呼出 <span id="frames">0</span>　FPS <span id="fps">--</span></div><div>キャラ <b id="char-state">idle</b> · <b id="dir-state">right</b> <span id="surface-state">GROUND</span></div></div>
+  </main>
+  <aside id="panel" hidden aria-label="xDimension Game Engine 設定パネル">
+    <div class="panel-heading"><span class="logo">◈</span><div><strong>SCENE CONTROLS</strong><small>xDimension Game Engine / 0.0.15</small></div></div>
+    <div class="section">WORLD / 町と街道</div>
+    <p class="help"><b>エリア移動（v0.0.13）:</b> 青葉の町の家と家の間（Z≈75）を右（D／▶）へ進み、石造りの東門をくぐると山岳街道へ。門前ではEキー／画面ボタンでも移動できます。橋を渡って東端へ進むと翠峰の町。西端へ戻れば逆方向に帰れます。3つのエリアはマップ単位で切り替わり、ゲーム内時間は共有します。</p>
+    <p class="help">最初の「石畳の村」から南（S／↓）に出ると、こもれび街道を歩いて「青葉の町」へ到着します。ロード画面なしの連続マップです。道中の標識も目印になります。町内18軒は今までどおり入室できます。</p>
+    <div class="section">PUZZLE / 動かせるオブジェクト</div>
+    <p class="help">こもれび街道の東側（X≈7〜9、Z≈29〜32）に押せる木箱が2つあります。箱の手前に立ち <b>Eキー／スマホの「押す」ボタン</b> で1.5m押し、両方を金色の床スイッチに載せてください。動かせる箱はWASMの当たり判定に対応。位置はブラウザに保存されます。</p>
+    <div class="tune-buttons"><button type="button" class="btn" id="test-puzzle">◇ パズル広場へ移動</button><button type="button" class="btn" id="puzzle-reset">↺ 箱を初期位置へ戻す</button></div>
+    <button type="button" id="test-east-gate" class="btn" style="margin:10px 0">↗ 東門の手前へ移動（動作確認）</button>
+    <p class="help">出口が見つからない場合、上のボタンで門の手前へ移動できます。そのまま右（D／▶）へ進んでください。</p>
+    <div class="section">HOUSE INTERIORS / 家への出入り</div>
+    <p class="help">18軒の玄関の前で <b>Eキー</b>、または画面に現れる「入る」ボタンを押すと室内へ移動します。室内では手前の扉付近で同じ操作をすると外へ戻ります。<b>室内は共通の仮レイアウト</b>です。</p>
+    <div class="field"><div class="line"><label for="indoor-room-light">室内全体の明るさ</label><output id="indoor-room-light-out">80%</output></div><input id="indoor-room-light" type="range" min="20" max="140" step="5" value="80"></div>
+    <p class="help">外の太陽光と環境光を室内では抑え、暖かい室内灯を残します。明るさは部屋にいる間だけ変わり、外へ出ると屋外照明に戻ります。</p>
+    <div class="field"><div class="line"><label for="indoor-window-light">窓の明るさ（室内）</label><output id="indoor-window-light-out">35%</output></div><input id="indoor-window-light" type="range" min="0" max="100" step="5" value="35"></div>
+    <p class="help">窓2つの発光は別に調整できます。家具の描画寸法と当たり判定は共通化しています。</p>
+    <div class="section">SPRITES / キャラクター素材</div>
+    <div class="field"><div class="line"><label for="sprite-set">使用素材</label><output id="sprite-set-status">Haruka</output></div>
+      <select id="sprite-set" class="tuning-select" aria-label="キャラクター素材を選択">
+      <option value="haruka" selected>Haruka（新画像・高解像度）</option>
+      <option value="legacy">オリジナル（旧画像）</option></select></div>
+    <label class="switch">Pixel Art / ドット絵表示（OFF＝高精細） <input id="pixels" type="checkbox"></label>
+    <div class="field"><div class="line"><label for="pixel-resolution">Pixel Art 処理解像度</label><output id="pixel-resolution-out">160 × 160 px</output></div>
+      <input id="pixel-resolution" type="range" min="64" max="512" step="16" value="160" aria-label="Pixel Art の1コマ処理解像度（64〜512px）"></div>
+    <p class="help" id="sprite-quality-status" role="status">画像品質：高精細</p>
+    <div class="sprite-info" id="sprite-info" role="status" aria-live="polite"><strong>SPRITE INFO / 画像処理情報</strong><div id="sprite-info-body">読み込み中…</div></div>
+
+    <div class="field"><div class="line"><label for="char-preview">アニメーション</label><output id="char-frame">idle 1/25</output></div>
+      <select id="char-preview" aria-label="アニメーションを試す" style="width:100%;margin-top:8px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;padding:7px">
+      <option value="auto">自動（操作に連動）</option><option value="idle">待機</option><option value="walk">歩行</option><option value="run">走行</option><option value="jump">ジャンプ</option><option value="attack">剣攻撃</option></select></div>
+    <div class="field"><div class="line"><label for="char-size">キャラクター全体の大きさ</label><output id="char-size-out">70%</output></div><input id="char-size" type="range" min="65" max="150" step="5" value="70"></div>
+    <p class="help">全体倍率の初期値は<b>70%</b>です（玄関との比率に合わせた設定）。新旧の素材とも使用する5動作のみを読み込み、未使用の30動作は含めません。<b>身体の基準身長と足元を統一</b>して表示します。専用の正面・背面画像がない場合、カメラから見た移動方向に合わせて横向き画像を左右反転します。正面・背面は assets/characters/ に追加できます。</p>
+    <details class="tuning-group" open>
+      <summary>SPRITE CALIBRATION / 個別調整</summary>
+      <p class="tune-small">ここでアニメーションを選ぶとプレビューします。設定を閉じるか移動・攻撃すると通常操作に戻ります。剣やジャンプの広がりに合わせて身体の大きさと足元を微調整できます。</p>
+      <label for="tune-action" class="tune-small">調整するアニメーション</label>
+      <select id="tune-action" class="tuning-select" aria-label="調整対象アニメーション">
+        <option value="idle">待機</option><option value="walk">歩行</option><option value="run">走行</option><option value="jump">ジャンプ</option><option value="attack" selected>剣攻撃</option>
+      </select>
+      <div class="field"><div class="line"><label for="tune-scale">身体の表示倍率</label><output id="tune-scale-out">103%</output></div><input type="range" id="tune-scale" min="50" max="150" step="1" value="103"></div>
+      <div class="field"><div class="line"><label for="tune-x">横位置の微調整（右＋）</label><output id="tune-x-out">0px</output></div><input type="range" id="tune-x" min="-100" max="100" step="1" value="0"></div>
+      <div class="field"><div class="line"><label for="tune-y">縦位置の微調整（上＋）</label><output id="tune-y-out">0px</output></div><input type="range" id="tune-y" min="-100" max="100" step="1" value="0"></div>
+      <label class="switch">足元ガイドを表示 <input type="checkbox" id="tune-guide"></label>
+      <div class="tune-buttons">
+        <button type="button" id="tune-action-reset" class="btn tune-button">選択中を初期化</button>
+        <button type="button" id="tune-all-reset" class="btn tune-button">すべて初期化</button>
+        <button type="button" id="tune-export" class="btn tune-button">設定をJSON保存</button>
+        <label for="tune-import" class="btn tune-button" style="text-align:center;cursor:pointer">JSONを読み込む</label>
+        <input type="file" id="tune-import" accept="application/json,.json">
+      </div>
+      <p id="tune-status" class="tune-status" role="status">調整値はこのブラウザに自動保存されます。</p>
+      <button type="button" id="tune-preview-auto" class="btn tune-button">▶ 通常の操作モードに戻す</button>
+    </details>
+    <div class="section">WORLD / 環境</div>
+    <p class="help">階段・坂道の側面に石の縁とC/Rust-WASM共通の衝突壁を追加しました。横から入ろうとすると停止します。</p>
+    <label class="switch">当たり判定エリアを表示 <input id="collision-guide" type="checkbox"></label>
+    <p class="help">黄色＝基本の進入禁止範囲、橙色＝カメラ側に追加した判定範囲です。</p>
+    <div class="field"><div class="line"><label for="camera-clearance">カメラ側の衝突余裕</label><output id="camera-clearance-out">1.0</output></div><input id="camera-clearance" type="range" min="0" max="2" step="0.1" value="1.0"></div>
+    <p class="help">カメラ側の壁・木にだけ追加の余裕を設けます。カメラ回転時には当たり判定も更新されます（0で無効）。</p>
+    <label class="switch">手前の建物・木を半透明にする <input id="occlusion-enabled" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="occlusion-alpha">透過中の不透明度</label><output id="occlusion-alpha-out">28%</output></div><input type="range" id="occlusion-alpha" min="10" max="80" step="2" value="28"></div>
+    <label class="switch">高台への経路を表示 <input id="elevation-guide" type="checkbox"></label>
+    <p class="help">南側（Z＋）の従来の高台に加え、北側（Z−）に家2軒の高台住宅地を追加しました。奥側の住宅地は中央の坂道（左）または階段（右）から上がれます。どちらも高台の横からは歩いて上がれません。</p>
+    <div class="section">WORLD TIME / ゲーム内時間</div>
+    <p class="help">時刻・日付・春夏秋冬は町・森道・室内で共通です。季節は日付で循環し、木や草、昼の長さ、季節の粒子が変化します。ページを閉じている間は時間が進みません。</p>
+    <div class="field"><div class="line"><label for="season-length">1季節の長さ</label><output id="season-status">春 · 1年目 1日目</output></div>
+      <input id="season-length" class="tuning-select" type="number" min="1" max="365" step="1" value="1" inputmode="numeric" aria-label="1季節の日数（1〜365日）"></div>
+    <div class="tune-buttons"><button type="button" id="season-next" class="btn">次の季節へ進む</button><button type="button" id="season-reset" class="btn">春の1日目に戻す</button></div>
+    <p class="help">初期値は1季節1日／1年4日です。日数は1〜365日で自由に設定できます。NPCは朝7時に出て夕方19時までに帰宅します。NPCとの会話・買い物は今後の開発予定です。</p>
+    <div class="field"><div class="line"><label for="time">ゲーム内の時刻</label><output id="time-out">Day 1 · 17:00</output></div><input id="time" type="range" min="0" max="1439" step="1" value="1020"></div>
+    <div class="field"><div class="line"><label for="time-rate">時間の速度</label><output id="time-rate-out">12倍 · 2分/日</output></div>
+      <select id="time-rate" class="tuning-select" aria-label="時間の進む速さ"><option value="0.25">0.25倍 · 96分/日</option><option value="1">1倍 · 24分/日</option><option value="4">4倍 · 6分/日</option><option value="8">8倍 · 3分/日</option><option value="12" selected>12倍 · 2分/日（標準）</option><option value="18">18倍 · 80秒/日</option><option value="24">24倍 · 60秒/日</option><option value="36">36倍 · 40秒/日</option></select></div>
+    <div class="tune-buttons"><button type="button" id="time-pause" class="btn">⏸ 時間を止める</button><button type="button" id="time-next-morning" class="btn">☀ 翌朝 6:00</button></div>
+    <p class="help" id="time-state">ゲーム内の時間が進行中です。時刻と速度はこのブラウザに保存されます。</p>
+    <div class="field"><div class="line"><label for="zoom">カメラ距離</label><output id="zoom-out">25</output></div><input id="zoom" type="range" min="16" max="82" step="1" value="25"></div>
+    <button type="button" class="btn" id="map-overview" aria-pressed="false">⌗ 村全体を見渡す</button>
+    <div class="field"><div class="line"><label for="angle">カメラ角度</label><output id="angle-out">36°</output></div><input id="angle" type="range" min="25" max="75" step="1" value="36"></div>
+    <div class="section">VISUAL / HYBRID 2D/3D 表現</div>
+    <p class="look-note">ハイブリッドルックと従来版を比較できます。物理演算・当たり判定・スプライトサイズは変えません。</p>
+    <div class="look-presets"><button type="button" id="look-hd2d" aria-pressed="true">✧ ハイブリッドルック</button><button type="button" id="look-classic" aria-pressed="false">◇ 従来版ルック</button></div>
+    <label class="switch">背景にドット風の質感を付ける <input id="surface-texture" type="checkbox" checked></label>
+    <label class="switch">Bloom / 光のにじみ <input id="bloom" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="bloom-strength">光のにじみの強さ</label><output id="bloom-strength-out">32%</output></div><input id="bloom-strength" type="range" min="0" max="100" step="5" value="32"></div>
+    <label class="switch">Depth of Field / 被写界深度 <input id="dof" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="dof-strength">背景のぼかし</label><output id="dof-strength-out">25%</output></div><input id="dof-strength" type="range" min="0" max="100" step="5" value="25"></div>
+    <div class="field"><div class="line"><label for="fog-density">遠景の霧</label><output id="fog-density-out">40%</output></div><input id="fog-density" type="range" min="0" max="100" step="5" value="40"></div>
+    <div class="field"><div class="line"><label for="vignette">周辺の陰影</label><output id="vignette-out">48%</output></div><input id="vignette" type="range" min="0" max="100" step="5" value="48"></div>
+    <label class="switch">Camera Follow / カメラ追従 <input id="follow" type="checkbox" checked></label>
+    <div class="section">CINEMATIC / v0.8 映像効果（維持）</div>
+    <p class="look-note">v0.7の見た目と比較可能です。これらは表示演出だけで、移動・衝突判定は変えません。</p>
+    <div class="look-presets"><button type="button" id="cinematic-on" aria-pressed="true">✧ v0.8 演出</button><button type="button" id="cinematic-off" aria-pressed="false">◇ v0.7 相当</button></div>
+    <div class="field"><div class="line"><label for="focus-offset">被写界深度：ピント位置（キャラ基準）</label><output id="focus-offset-out">±0.0</output></div><input id="focus-offset" type="range" min="-6" max="6" step="0.5" value="0"></div>
+    <p class="look-note">プラスでピントを遠くに、マイナスで近くに。DOFがONの時に反映されます。</p>
+    <label class="switch">足元の柔らかい影 <input id="contact-shadow-enabled" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="contact-shadow-opacity">足元の影の濃さ</label><output id="contact-shadow-opacity-out">85%</output></div><input id="contact-shadow-opacity" type="range" min="0" max="100" step="5" value="85"></div>
+    <label class="switch">木漏れ日 <input id="dapple-enabled" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="dapple-strength">木漏れ日の強さ</label><output id="dapple-strength-out">45%</output></div><input id="dapple-strength" type="range" min="0" max="100" step="5" value="45"></div>
+    <label class="switch">光の筋（簡易光芒） <input id="shafts-enabled" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="shafts-strength">光の筋の強さ</label><output id="shafts-strength-out">35%</output></div><input id="shafts-strength" type="range" min="0" max="100" step="5" value="35"></div>
+    <label class="switch">噴水の波紋・きらめき <input id="water-ripple-enabled" type="checkbox" checked></label>
+    <div class="field"><div class="line"><label for="water-ripple-strength">波紋の強さ</label><output id="water-ripple-strength-out">60%</output></div><input id="water-ripple-strength" type="range" min="0" max="100" step="5" value="60"></div>
+    <div class="section">CAMERA / カメラ演出</div>
+    <div class="field"><div class="line"><label for="follow-speed">カメラの追従速度</label><output id="follow-speed-out">2.0</output></div><input id="follow-speed" type="range" min="1" max="10" step="0.5" value="2"></div>
+    <div class="field"><div class="line"><label for="camera-lead">移動方向への先読み</label><output id="camera-lead-out">0.6</output></div><input id="camera-lead" type="range" min="0" max="2.5" step="0.1" value="0.6"></div>
+    <div class="section">ATMOSPHERE / GPU PARTICLES</div>
+    <div class="field"><div class="line"><label for="particle-mode">パーティクル</label><output id="particle-out">蛍</output></div>
+      <select id="particle-mode" aria-label="パーティクル種類" style="width:100%;margin-top:8px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;padding:7px"><option value="auto" selected>季節に応じて自動</option><option value="firefly">蛍・光の粒</option><option value="leaf">落ち葉</option><option value="snow">雪</option><option value="petal">花びら</option><option value="off">OFF</option></select>
+    </div>
+    <div class="field"><div class="line"><label for="particle-density">粒子の密度</label><output id="particle-density-out">5%</output></div><input id="particle-density" type="range" min="0" max="100" step="5" value="5"></div>
+    <div id="gpu-info" class="wasm-badge">GPU backend 確認中…</div>
+    <div class="section">CONTROLS / 操作</div>
+    <div class="keycaps"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+    <p class="help">移動：WASD / 矢印キー / 十字キー<br>走る：Shift　ジャンプ：J　攻撃：Space / K<br>視点回転：画面をドラッグ<br>拡大縮小：マウスホイール</p>
+    <button id="reset" class="btn">↺ プレイヤーを初期位置へ戻す</button>
+    <div class="section">RUNTIME / 実行エンジン</div>
+    <div id="wasm-info" class="wasm-badge">WASM 初期化中…</div>
+    <p class="footer">初期カメラ向きの玄関・奥の高台住宅街v0.0.3。移動・衝突・地形乱数はC/Rust共通WASM ABI。キャラクターの演出はJavaScript。ジャンプはWASMの重力・接地判定に対応。攻撃はアニメーション演出です。WebGPU非対応時はWebGL2表示に切り替えます。v0.8光芒・波紋は軽量な描画演出で、物理的な反射計算ではありません。</p>
+  </aside>
+</div>
+<script>
+// Scene UI can open even if an external Three.js CDN has not loaded yet.
+(() => {
+  const panel=document.getElementById('panel');
+  const toggle=document.getElementById('panel-toggle');
+  const close=()=>{panel.hidden=true;toggle.textContent='⚙ 設定を開く';toggle.setAttribute('aria-expanded','false');panel.dispatchEvent(new Event('panelclosed'));};
+  toggle.addEventListener('click',()=>{
+    if(!panel.hidden){close();return;}
+    panel.hidden=false;toggle.textContent='✕ 設定を閉じる';toggle.setAttribute('aria-expanded','true');
+    panel.dispatchEvent(new Event('panelopened'));
+  });
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){close();toggle.focus();}});
+})();
+</script>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { Fn, If, uniform, uv, vec3, hash, texture, instancedArray, instanceIndex, pass, sin, cos } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+
+const $=(id)=>document.getElementById(id);
+const ParticleShapes=(()=>{
+{{PARTICLE_SHAPES_SOURCE}}
+return {PARTICLE_SHAPE_MODES,paintParticleMask};
+})();
+const ParticleMotion=(()=>{
+{{PARTICLE_MOTION_SOURCE}}
+return {PARTICLE_MOTION_PRESETS,particleVelocity};
+})();
+// Same collider source powers C-WASM, Rust-WASM, 3D scene and debug overlay.
+const collisionWorld={{COLLISION_WORLD}};
+const areaData={{AREA_MAPS_DATA}};
+const puzzleData={{PUZZLE_DATA}};
+const PuzzleLogic=(()=>{
+{{PUZZLE_LOGIC_SOURCE}}
+return {PUZZLE_STORAGE_KEY,nearestPuzzleBox,puzzlePushDirection,puzzleProgress,validSavedPuzzleBoxes};
+})();
+const areaGrassMaterials=[];
+const areaLeafMaterials=[];
+const AreaMaps=(()=>{
+{{AREA_MAPS_SOURCE}}
+return {mountainRoadZ,areaTerrainHeight,insidePortal,findPortal,findNearbyPortal,collidesExtra};
+})();
+const DoorLogic=(()=>{
+{{DOOR_LOGIC_SOURCE}}
+return {nearOutdoorDoor,nearIndoorExit,stepInteriorPlayer,INTERIOR_FURNITURE,interiorFurnitureCollision,interiorFurnitureBounds};
+})();
+const InteriorCamera=(()=>{
+{{INTERIOR_CAMERA_SOURCE}}
+return {computeInteriorFitDistance};
+})();
+// Pure clock logic is also imported by Node tests; embedded at build time.
+const WorldTime=(()=>{
+{{WORLD_CLOCK_SOURCE}}
+return {WORLD_CLOCK_STORAGE_KEY,WORLD_CLOCK_PREVIOUS_STORAGE_KEY,WORLD_CLOCK_LEGACY_STORAGE_KEY,createWorldClock,advanceWorldClock,seekWorldClock,worldClockPhase,worldClockLabel,worldClockSnapshot,migrateLegacyWorldClock,migratePreviousSeasonClock};
+})();
+const Seasons=(()=>{
+{{WORLD_SEASONS_SOURCE}}
+return {SEASON_KEYS,SEASON_LABELS,SEASON_PALETTES,seasonAtDay,sunlightAtHour,npcSchedule,npcPosition};
+})();
+// Opening settings must NEVER change the current gameplay animation.
+// Closing settings releases a preview that was explicitly selected there.
+$('panel').addEventListener('panelclosed',()=>{
+  if($('char-preview').value!=='auto')setGameplayPreview();
+});
+const WASM_B64='{{WASM_BASE64}}';
+const wasmBytes=Uint8Array.from(atob(WASM_B64),ch=>ch.charCodeAt(0));
+let engine;
+try{
+  const {instance}=await WebAssembly.instantiate(wasmBytes,{});
+  engine=instance.exports;
+  for(const fn of ['reset','move_player','get_x','get_y','get_z','get_ground_y','get_ground_y_at','is_grounded','jump_player','set_running','set_view_collision','get_frame_count','get_collision_count','terrain_noise','get_map','set_map','puzzle_count','puzzle_x','puzzle_z','puzzle_push','puzzle_set','puzzle_reset']) if(typeof engine[fn]!=='function') throw Error('WASM export missing: '+fn);
+  engine.reset(0,3.5);
+  const version=engine.engine_version();
+  const lang=version>=200?'Rust':'C';
+  $('backend-hud').textContent=`${lang}-WASM`;
+  $('wasm-info').textContent=`✓ ${lang} → WASM / ${wasmBytes.length.toLocaleString()} bytes / ABI ${version}`;
+  $('notice').classList.add('good');
+}catch(err){$('notice').textContent='WASM起動に失敗: '+err.message;throw err;}
+
+const stage=$('stage');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#8e9cb0');
+scene.fog=new THREE.FogExp2('#8e9cb0',0.021);
+const camera=new THREE.PerspectiveCamera(41,1,0.1,180);
+// WebGPURenderer selects native WebGPU where supported and WebGL2 otherwise.
+const renderer=new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+stage.prepend(renderer.domElement);
+
+await renderer.init();
+const nativeWebGPU=renderer.backend?.isWebGPUBackend===true;
+$('gpu-info').textContent=nativeWebGPU?'✓ WebGPU backend / GPU Compute 有効':'WebGL2 fallback / GPU Compute 無効';
+const postProcessing=new THREE.PostProcessing(renderer);
+const scenePass=pass(scene,camera);
+const sceneColor=scenePass.getTextureNode('output');
+const focusDistance=uniform(25),focalLength=uniform(8.5),bokehScale=uniform(.75);
+let glowPass=null;
+function rebuildEffects(){
+  let color=$('dof').checked?dof(sceneColor,scenePass.getViewZNode(),focusDistance,focalLength,bokehScale):sceneColor;
+  glowPass=null;
+  if($('bloom').checked){
+    glowPass=bloom(color);glowPass.threshold.value=.72;
+    glowPass.strength.value=Number($('bloom-strength').value)/100;
+    glowPass.radius.value=.28;
+    color=color.add(glowPass);
+  }
+  postProcessing.outputNode=color;
+}
+function updateLookValues(){
+  bokehScale.value=.12+Number($('dof-strength').value)/100*2.10;
+  if(glowPass)glowPass.strength.value=Number($('bloom-strength').value)/100;
+  scene.fog.density=.008+Number($('fog-density').value)/100*.027;
+  $('film-overlay').style.opacity=String(Number($('vignette').value)/100);
+  for(const id of ['dof-strength','bloom-strength','fog-density','vignette'])$(id+'-out').textContent=$(id).value+'%';
+}
+rebuildEffects();
+updateLookValues();
+// Pixel-scale PROCEDURAL TEXTURES are generated locally: no extra download or
+// externally copyrighted environment assets. The actor sprites remain untouched.
+function makePixelTexture(kind,seed){
+  let state=seed>>>0;
+  const rand=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+  const c=document.createElement('canvas');c.width=192;c.height=192;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#eeeeee';ctx.fillRect(0,0,192,192);
+  const pixel=(x,y,w,h,v)=>{const n=Math.max(0,Math.min(255,Math.floor(v)));ctx.fillStyle=`rgb(${n},${n},${n})`;ctx.fillRect(x,y,w,h);};
+  if(kind==='grass'){
+    ctx.fillStyle='#ddd';ctx.fillRect(0,0,192,192);
+    for(let i=0;i<1650;i++){
+      const x=Math.floor(rand()*64)*3,y=Math.floor(rand()*64)*3;
+      pixel(x,y,3,3,198+rand()*50);
+    }
+    for(let i=0;i<175;i++){
+      const x=Math.floor(rand()*64)*3,y=Math.floor(rand()*64)*3;
+      pixel(x,y,3,9,147+rand()*58);
+    }
+  }else if(kind==='stone'){
+    ctx.fillStyle='#c4c4c4';ctx.fillRect(0,0,192,192);
+    for(let row=0;row<8;row++){
+      const y=row*24;const shift=(row%2)*24;
+      for(let x=-48+shift;x<192;x+=48){
+        pixel(x+2,y+2,44,20,188+rand()*49);
+        pixel(x+4,y+3,42,2,215+rand()*22);
+        pixel(x+2,y+20,44,2,141+rand()*22);
+        for(let i=0;i<12;i++){const px=x+4+Math.floor(rand()*40),py=y+4+Math.floor(rand()*14);pixel(px,py,3,3,160+rand()*72);}
+      }
+    }
+  }else if(kind==='plaster'){
+    for(let i=0;i<650;i++){
+      pixel(Math.floor(rand()*64)*3,Math.floor(rand()*64)*3,3,3,208+rand()*43);
+    }
+    for(let i=0;i<12;i++){
+      const x=Math.floor(rand()*60)*3,y=Math.floor(rand()*60)*3;
+      pixel(x,y,3,9,172+rand()*39);pixel(x+3,y+6,9,3,181+rand()*32);
+    }
+  }else if(kind==='roof'){
+    ctx.fillStyle='#e8e8e8';ctx.fillRect(0,0,192,192);
+    for(let row=0;row<12;row++){
+      const y=row*16;
+      for(let x=-16+(row%2)*16;x<192;x+=32){
+        pixel(x+1,y+2,30,13,182+rand()*56);
+        pixel(x+2,y+3,28,2,225+rand()*25);
+        pixel(x+1,y+14,30,2,132+rand()*26);
+      }
+    }
+  }else if(kind==='wood'){
+    ctx.fillStyle='#e1e1e1';ctx.fillRect(0,0,192,192);
+    for(let x=0;x<192;x+=32){pixel(x,0,3,192,145+rand()*35);pixel(x+4,0,2,192,228);}
+    for(let i=0;i<24;i++){const x=Math.floor(rand()*63)*3,y=Math.floor(rand()*63)*3;pixel(x,y,3,12,165+rand()*35);}
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.magFilter=THREE.NearestFilter;
+  tex.minFilter=THREE.LinearMipmapLinearFilter;
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.anisotropy=Math.min(renderer.capabilities?.getMaxAnisotropy?.()||4,4);
+  return tex;
+}
+const surfaceMaps={
+  grass:makePixelTexture('grass',71),
+  stone:makePixelTexture('stone',113),
+  plaster:makePixelTexture('plaster',733),
+  roof:makePixelTexture('roof',256),
+  wood:makePixelTexture('wood',421)
+};
+const texturedMaterials=[];
+function mat(hex,roughness=1,textureKind=null){
+  const m=new THREE.MeshStandardMaterial({color:hex,roughness});
+  if(textureKind){m.map=surfaceMaps[textureKind];texturedMaterials.push({material:m,textureKind});}
+  return m;
+}
+$('surface-texture').addEventListener('change',e=>{
+  for(const {material,textureKind} of texturedMaterials){
+    material.map=e.target.checked?surfaceMaps[textureKind]:null;
+    material.needsUpdate=true;
+  }
+});
+function setLookPreset(name){
+  const hd=name==='hd2d';
+  const settings={
+    'surface-texture':hd,'bloom':true,'dof':hd,
+    'bloom-strength':hd?32:36,'dof-strength':hd?25:0,
+    'fog-density':hd?40:48,'vignette':hd?48:0
+  };
+  for(const [id,val] of Object.entries(settings)){
+    const el=$(id);
+    if(el.type==='checkbox'){if(el.checked!==val){el.checked=val;el.dispatchEvent(new Event('change'));}}
+    else{el.value=String(val);el.dispatchEvent(new Event('input'));}
+  }
+  $('look-hd2d').setAttribute('aria-pressed',String(hd));
+  $('look-classic').setAttribute('aria-pressed',String(!hd));
+}
+$('look-hd2d').addEventListener('click',()=>setLookPreset('hd2d'));
+$('look-classic').addEventListener('click',()=>setLookPreset('classic'));
+const wall=mat('#d4b896',1,'plaster'),stone=mat('#8f9090',1,'stone'),wood=mat('#59402c',1,'wood'),trim=mat('#f3d5a1',1,'wood'),leaf=mat('#436f4e'),grass=mat('#658261',1,'grass'),roofRed=mat('#a25149',1,'roof'),roofBlue=mat('#516777',1,'roof');
+const leafAlt1=mat('#638352'),leafAlt2=mat('#496e50');
+const geoBox=new THREE.BoxGeometry(1,1,1);
+// Collect visible foreground occluders separately from WASM collision geometry.
+const occlusionSets=[];
+let captureOcclusion=null;
+function registerOccluder(mesh){
+  if(captureOcclusion){
+    captureOcclusion.push(mesh);
+    mesh.material=mesh.material.clone();
+    // Occluders need independent opacity, but participate in the same look toggle.
+    const kind=Object.keys(surfaceMaps).find(k=>surfaceMaps[k]===mesh.material.map);
+    if(kind)texturedMaterials.push({material:mesh.material,textureKind:kind});
+  }
+}
+
+function block(x,y,z,w,h,d,material,cast=false){const m=new THREE.Mesh(geoBox,material);m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=cast;m.receiveShadow=true;scene.add(m);registerOccluder(m);return m;}
+function sphere(x,y,z,r,material,sx=1,sy=1,sz=1){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;scene.add(m);registerOccluder(m);return m;}
+function cyl(x,y,z,r0,r1,h,material,seg=12){const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);registerOccluder(m);return m;}
+
+// Terrain: subtle tile patterns populated with deterministic positions from WASM.
+const soil=block(0,-0.20,0,49.2,0.42,39,grass);
+const edge=mat('#45564a');
+block(0,-0.37,-19.35,49.4,0.35,.65,edge); // +Z exit now joins the forest road
+block(-24.4,-.37,0,.55,.35,39.2,edge);block(24.4,-.37,0,.55,.35,39.2,edge);
+const road=mat('#999083',1,'stone');
+block(0,.013,0,4.6,.04,37.2,road);
+// Two side streets connect the new housing blocks to the original central plaza.
+for(const sideX of [-12.6,12.6])block(sideX,.013,0,2.3,.04,36.3,road);
+block(0,.015,-3.5,46,.04,3.8,road);
+block(0,.014,3.0,46,.035,2.5,road);
+for(const edgeZ of [-16.8,16.8])block(0,.014,edgeZ,45,.035,2.1,road);
+const pebbleMat=[mat('#b2a497'),mat('#8d837a'),mat('#aa9e8f'),mat('#6e786d')];
+for(let i=0;i<1750;i++) {
+ const xi=i*37-900,zi=i*71-1600;
+ const x=(engine.terrain_noise(xi,3)*47-23.5),z=(engine.terrain_noise(5,zi)*36.6-18.3);
+ if((Math.abs(x)<2.4) || (Math.abs(Math.abs(x)-12.6)<1.2) || (Math.abs(z+3.5)<1.95) || (Math.abs(z-3)<1.3) || (Math.abs(Math.abs(z)-16.8)<1.1))continue;
+ const g=new THREE.Mesh(new THREE.BoxGeometry(.09+engine.terrain_noise(xi,zi)*.15,.028,.10),pebbleMat[i%4]);
+ g.position.set(x,.03,z);g.rotation.y=engine.terrain_noise(zi,xi)*Math.PI;g.receiveShadow=true;scene.add(g);
+}
+// Repeated stone pavers show actual geometric relief under lighting.
+const paving=mat('#b1a99a',1,'stone');
+for(let z=-18.0;z<=18.0;z+=.81) for(const roadX of [0,-12.6,12.6]) for(let x=roadX-1.0;x<=roadX+1.0;x+=.78){
+ const v=engine.terrain_noise(Math.round(x*90),Math.round(z*90));
+ block(x+(v-.5)*.12,.049,z+(v-.5)*.08,.66,.035,.68,v>.4?paving:road);
+}
+for(const z of [-16.8,-3.5,3,16.8])for(let x=-22.3;x<=22.3;x+=.83){
+ for(let k=-1;k<=1;k++) {const v=engine.terrain_noise(Math.round(x*20),k*17+Math.round(z));
+ block(x,.052,z+k*.75,.72,.035,.62,v>.55?paving:road);}
+}
+
+// v0.0.5: seamless countryside and a second town to the SOUTH (+Z).
+// This visual territory and C/Rust-WASM collision boundaries share collision-world.json.
+const trailSpec=collisionWorld.trail;
+const farMeadow=mat('#627d66',1,'grass'),farCobble=mat('#aaa48f',1,'stone');
+block(0,-.20,59.75,49.2,.42,80.5,farMeadow); // begins at z=19.5, preventing overlapping coplanar ground (z-fighting)
+// Three districts: original square, long walkable tree-lined trail, second village.
+block(0,.014,40.8,trailSpec.width,.04,43.8,road);
+block(0,.016,81.2,4.8,.035,36.4,farCobble);
+for(const z of [69,79,89])block(0,.017,z,31,.04,3.15,farCobble);
+// A central meeting square, with paving and planter beds (no false invisible colliders).
+block(0,.021,78.8,7,.045,9.6,farCobble);
+for(let z=20.1;z<63.0;z+=.84){
+  const v=engine.terrain_noise(Math.round(z*23),314);
+  for(const side of [-1,1]){
+    const x=side*(.48+v*.78);
+    block(x,.051,z,.48,.023,.60,v>.45?paving:road);
+  }
+}
+// Small paths to doorways in the second town.
+for(const z of [68.5,78.5,88.5])for(const x of [-8.5,8.5]){
+ const length=Math.abs(x)-2.0;
+ block(x<0?(-2.2-length*.5):(2.2+length*.5),.029,z+3.6,length,.04,1.5,farCobble);
+}
+// Low roadside rocks and wildflowers make the walk distinct from the town squares.
+for(let i=0;i<135;i++){
+ const z=21+engine.terrain_noise(i*19,77)*43;
+ const side=(i%2)?1:-1;
+ const x=side*(5.4+engine.terrain_noise(i*7,113)*14);
+ if(i%4===0){sphere(x,.13,z,.21,stone,1.2,.55,.75);}
+ else{sphere(x,.22,z,.09,mat(['#e7c0cb','#e9d09a','#c2cdea'][i%3]));}
+}
+// Both road signs are world-space meshes and remain fixed when the camera rotates.
+function routeSign(text,x,z){
+ const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
+ const ctx=canvas.getContext('2d');ctx.fillStyle='#493a2c';ctx.fillRect(0,0,512,128);
+ ctx.strokeStyle='#d6ae76';ctx.lineWidth=8;ctx.strokeRect(8,8,496,112);
+ ctx.fillStyle='#fff0cd';ctx.font='bold 45px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,64);
+ const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
+ const plane=new THREE.Mesh(new THREE.PlaneGeometry(3.35,.84),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+ plane.position.set(x,2.15,z);scene.add(plane);
+ block(x,1.07,z,.14,2.13,.14,wood);return plane;
+}
+routeSign('青葉の町 ↓',3.8,23.8);
+routeSign('青葉の町',3.8,63.1);
+routeSign('石畳の村 ↑',-4.3,61.4);
+// v0.0.13: the east gate is drawn from the SAME JSON portal rectangle used
+// by the game transition, not a hand-placed hint that can disagree with it.
+const eastGate=collisionWorld && areaData.portals.find(p=>p.id==='aoba-to-mountain');
+const gateZ=(eastGate.zMin+eastGate.zMax)*.5;
+const gateX=eastGate.x+.20;
+// Paved east-west connector between the rows of houses. Deliberately placed
+// between the building colliders; the old Z=78.5 instruction hit a house.
+block(17.0,.045,gateZ,14.1,.065,3.05,farCobble);
+const gateStone=mat('#a6a79e',1,'stone');
+for(const side of [-1,1]){
+  const z=gateZ+side*3.25;
+  block(gateX,1.81,z,.85,3.60,.88,gateStone);
+  block(gateX,3.68,z,1.10,.26,1.12,stone);
+}
+block(gateX,3.85,gateZ,1.24,.83,7.18,gateStone);
+block(gateX,4.33,gateZ,1.50,.22,7.45,stone);
+// A gold ground marker at the gate threshold: bright in every season/daypart.
+const gateMarker=new THREE.Mesh(new THREE.BoxGeometry(.95,.035,1.30),new THREE.MeshBasicMaterial({color:'#e9c16d'}));
+gateMarker.position.set(eastGate.x-.4,.10,gateZ);scene.add(gateMarker);
+routeSign('山岳街道 →',17.3,gateZ-3.85);
+
+// All fixed buildings face the INITIAL camera (positive Z). Camera orbit does not rotate houses.
+// Upper terrace houses use elevation from collision-world.json.
+const windows=[];
+function house(x,z,index,elevation=0){
+ const addedSince=scene.children.length;
+ const occlusion=[];captureOcclusion=occlusion;
+ const tone=index>=12?mat(index%2?'#b9c8ba':'#d1c7a6',1,'plaster'):(index%2?mat('#c7aa8b',1,'plaster'):wall);
+ block(x,1.32,z,3.95,2.65,3.38,tone,true);
+ block(x,2.58,z,4.18,.18,3.6,trim,true);
+ const rm=index>=12?(index%2?roofRed:roofBlue):(index%2?roofBlue:roofRed);
+ // Correct gable roof: the two panels RISE toward the central ridge.
+ // v0.8 accidentally inverted these rotations and made a valley roof.
+ const pitch=.51, roofY=3.28, roofCenterOffset=2.76*.5*Math.cos(.51);
+ const slopeHalfSpan=2.76*.5*Math.sin(pitch);
+ const ridgeY=roofY+slopeHalfSpan;
+ const left=block(x-roofCenterOffset,roofY,z,2.76,.2,4.23,rm,true);
+ left.rotation.z=pitch;
+ const right=block(x+roofCenterOffset,roofY,z,2.76,.2,4.23,rm,true);
+ right.rotation.z=-pitch;
+ // The original walls are rectangular. Fill the triangular gable on both
+ // end faces so the roof doesn't look like a floating, hollow tent.
+ const gableShape=new THREE.Shape();
+ gableShape.moveTo(-1.98,2.64);
+ gableShape.lineTo(1.98,2.64);
+ gableShape.lineTo(0,ridgeY-.04);
+ gableShape.closePath();
+ const gableGeo=new THREE.ShapeGeometry(gableShape);
+ for(const dz of [-1.695,1.695]){
+   const gable=new THREE.Mesh(gableGeo,tone);
+   gable.position.set(x,0,z+dz);
+   gable.material=gable.material.clone();
+   gable.material.side=THREE.DoubleSide;
+   gable.castShadow=true;gable.receiveShadow=true;
+   scene.add(gable);registerOccluder(gable);
+ }
+ // A narrow ridge cap emphasizes the true peak.
+ block(x,ridgeY+.088,z,.14,.14,4.31,trim,true);
+ block(x+1.05,4.0,z+.55,.48,1.12,.52,stone,true);
+ // Hand-built pixel-diorama accents: masonry sill, chimney cap, wood beams.
+ block(x+1.05,4.57,z+.55,.67,.13,.69,trim,true);
+ block(x,2.54,z+1.72,4.11,.12,.12,wood);
+ block(x,2.54,z-1.72,4.11,.12,.12,wood);
+ for(const sign of [-1,1]){
+   const zx=z+sign*1.61;
+   block(x,1.45,zx,3.8,.12,.11,wood);
+   block(x,2.13,zx,3.8,.095,.10,trim);
+ }
+ // Flower pots and climbers sit against the house, within its original collider.
+ for(const zz of [-1.20,1.20]){
+   const px=x+(x<0?1:-1)*1.73;
+   block(px,.34,z+zz,.39,.42,.46,mat('#85634b',1,'wood'));
+   sphere(px,.71,z+zz,.32,mat('#547650'),1.1,.65,.95);
+   for(const k of [-1,0,1])
+     sphere(px+(k*.12),.89+(k===0?.13:0),z+zz+(k*.11),.07,mat(k===0?'#e8c987':'#cf9ca8'));
+ }
+
+ const towardCenter=x<0?1:-1;
+ const frontX=x+towardCenter*2.02;
+ block(frontX,1.0,z,0.12,1.75,.98,wood,true);
+ block(frontX+towardCenter*.086,1.02,z-.32,.03,.1,.08,trim);
+ for(const dz of [-1.02,1.02]){
+   const win=new THREE.Mesh(new THREE.BoxGeometry(.045,.74,.64),new THREE.MeshStandardMaterial({color:'#ffdb8f',emissive:'#ffc978',emissiveIntensity:1.65}));
+   win.position.set(frontX+towardCenter*.09,1.89,z+dz);scene.add(win);windows.push(win);registerOccluder(win);
+   block(frontX+towardCenter*.14,2.30,z+dz,.10,.08,.82,wood);
+   block(frontX+towardCenter*.14,1.50,z+dz,.11,.09,.82,wood);
+ }
+ // short threshold at the doorway
+ block(frontX+towardCenter*.28,.10,z,.68,.16,1.25,stone);
+ // Rotate each completed house around its LOCAL center; the near-wall door
+ // will face positive Z (towards the initial camera) rather than village center.
+ // Use premultiplied quaternions so gable roof pitch stays correct after yaw.
+ const heading=x<0?-Math.PI/2:Math.PI/2;
+ const co=Math.cos(heading),si=Math.sin(heading);
+ const yawQuaternion=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),heading);
+ for(const part of scene.children.slice(addedSince)){
+   const px=part.position.x-x,pz=part.position.z-z;
+   part.position.set(x+co*px+si*pz,part.position.y+elevation,z-si*px+co*pz);
+   part.quaternion.premultiply(yawQuaternion);
+ }
+ captureOcclusion=null;occlusionSets.push({meshes:occlusion,opacity:1});
+}
+for(const [i,p] of collisionWorld.houses.entries())house(p.x,p.z,i,p.elevation||0);
+
+// The fountain collides via a circle test in the WASM simulation.
+cyl(0,.31,-3.5,1.44,1.48,.62,stone,20);
+cyl(0,.72,-3.5,1.15,1.18,.17,mat('#3c777d'),20);
+cyl(0,1.24,-3.5,.24,.34,1.18,stone,12);
+sphere(0,1.85,-3.5,.45,mat('#dfd3b4'));
+const water=new THREE.Mesh(new THREE.CylinderGeometry(1.06,1.06,.06,36),new THREE.MeshStandardMaterial({color:'#60a8b0',roughness:.17,metalness:.4,transparent:true,opacity:.85}));water.position.set(0,.826,-3.5);scene.add(water);
+// v0.8: stylized water highlights/ripples on the existing fountain (not SSR).
+// Tiny unlit translucent rings avoid another render pass and work in WebGL fallback.
+const waterRipples=[];
+for(let k=0;k<4;k++){
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.93,.955,48),new THREE.MeshBasicMaterial({
+    color:k%2?'#fff2ce':'#c5fcff',transparent:true,opacity:0,side:THREE.DoubleSide,
+    depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2
+  }));
+  ring.rotation.x=-Math.PI/2;ring.position.set(0,.863+k*.0008,-3.5);
+  ring.userData.phase=k/4;scene.add(ring);waterRipples.push(ring);
+}
+const waterGlints=[];
+for(let k=0;k<7;k++){
+  const a=k*2.399963229728653;
+  const r=.20+(k%3)*.20;
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.17,.027),new THREE.MeshBasicMaterial({
+    color:'#edffff',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,
+    blending:THREE.AdditiveBlending
+  }));
+  mesh.rotation.x=-Math.PI/2;mesh.rotation.z=a*.1;
+  mesh.position.set(Math.cos(a)*r,.867+k*.0003,-3.5+Math.sin(a)*r);
+  scene.add(mesh);waterGlints.push(mesh);
+}
+
+
+const springBlossoms=[];
+const blossomMaterial=new THREE.MeshBasicMaterial({color:'#f6c6dc'});
+function tree(x,z,i){
+ const occlusion=[];captureOcclusion=occlusion;
+ cyl(x,.82,z,.20,.29,1.65,wood,7);
+ const v=engine.terrain_noise(i*17,i*31);
+ sphere(x,2.08,z,.95,leaf,1.0,.95,.95);
+ sphere(x+.27,2.58,z,.81,v>.5?leafAlt1:leafAlt2,1,1.04,1);
+ sphere(x-.35,2.4,z-.16,.82,leaf);
+ for(let b=0;b<4;b++){
+   const angle=(b*2.399+i*.8);
+   const blossom=new THREE.Mesh(new THREE.IcosahedronGeometry(.12,0),blossomMaterial);
+   blossom.position.set(x+Math.sin(angle)*.63,2.22+Math.cos(angle*1.7)*.32,z+Math.cos(angle)*.55);
+   scene.add(blossom);springBlossoms.push(blossom);
+ }
+ captureOcclusion=null;occlusionSets.push({meshes:occlusion,opacity:1});
+}
+collisionWorld.trees.forEach((p,i)=>tree(p.x,p.z,i));
+// Warm leaf-filtered light on the ground, drawn procedurally and independent of physics.
+const dappleCanvas=document.createElement('canvas');dappleCanvas.width=256;dappleCanvas.height=256;
+const dapCtx=dappleCanvas.getContext('2d');
+let dapSeed=214923;
+function dRand(){dapSeed=(1664525*dapSeed+1013904223)>>>0;return dapSeed/4294967296;}
+for(let n=0;n<70;n++){
+ const xx=18+dRand()*220,yy=18+dRand()*220,rad=5+dRand()*14;
+ const grad=dapCtx.createRadialGradient(xx,yy,0,xx,yy,rad);
+ grad.addColorStop(0,'rgba(255,242,185,.38)');grad.addColorStop(.7,'rgba(255,232,168,.13)');grad.addColorStop(1,'rgba(255,230,170,0)');
+ dapCtx.fillStyle=grad;dapCtx.beginPath();dapCtx.arc(xx,yy,rad,0,Math.PI*2);dapCtx.fill();
+}
+const dappleTexture=new THREE.CanvasTexture(dappleCanvas);dappleTexture.colorSpace=THREE.SRGBColorSpace;
+const dappleMaterial=new THREE.MeshBasicMaterial({map:dappleTexture,transparent:true,opacity:0,
+  depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-2});
+const dappleMeshes=[];
+for(const p of collisionWorld.trees){
+ const patch=new THREE.Mesh(new THREE.PlaneGeometry(4.1,4.1),dappleMaterial);
+ patch.rotation.x=-Math.PI/2;patch.rotation.z=(p.x*7+p.z)*.18;
+ patch.position.set(p.x+.6,.095,p.z+.5);patch.renderOrder=1;scene.add(patch);dappleMeshes.push(patch);
+}
+// Screen-facing subtle shafts near trees. Decorative 2D approximation, not raymarching.
+const shaftsCanvas=document.createElement('canvas');shaftsCanvas.width=64;shaftsCanvas.height=256;
+const shCtx=shaftsCanvas.getContext('2d');
+const shaftGrad=shCtx.createLinearGradient(0,0,0,256);
+shaftGrad.addColorStop(0,'rgba(255,240,184,0)');shaftGrad.addColorStop(.32,'rgba(255,233,175,.12)');
+shaftGrad.addColorStop(.8,'rgba(255,232,168,.08)');shaftGrad.addColorStop(1,'rgba(255,238,180,0)');
+shCtx.fillStyle=shaftGrad;shCtx.fillRect(0,0,64,256);
+const shaftTexture=new THREE.CanvasTexture(shaftsCanvas);shaftTexture.colorSpace=THREE.SRGBColorSpace;
+const shaftsMaterial=new THREE.SpriteMaterial({map:shaftTexture,transparent:true,opacity:0,
+  depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});
+const shaftSprites=[];
+for(const p of collisionWorld.trees.slice(0,5)){
+ const sp=new THREE.Sprite(shaftsMaterial);sp.position.set(p.x+.42,2.1,p.z+.40);sp.scale.set(2.3,4.2,1);
+ scene.add(sp);shaftSprites.push(sp);
+}
+
+for(let i=0;i<155;i++){
+ const x=engine.terrain_noise(i*33,27)*45-22.5,z=engine.terrain_noise(7,i*77)*35.5-17.75;
+ if(Math.abs(x)<2.65 || Math.abs(Math.abs(x)-12.6)<1.4 || Math.abs(z+3.5)<2.3 || Math.abs(z-3)<1.6)continue;
+ const stem=cyl(x,.13,z,.025,.03,.26,leaf,5);
+ const petal=mat(['#e9b7c8','#e1c47e','#c1cee9'][i%3]);sphere(x,.31,z,.085,petal);
+}
+// Lanterns also get soft radial pools projected onto the walkable ground.
+const lightCanvas=document.createElement('canvas');lightCanvas.width=128;lightCanvas.height=128;
+const glowContext=lightCanvas.getContext('2d');
+const halo=glowContext.createRadialGradient(64,64,2,64,64,63);
+halo.addColorStop(0,'rgba(255,227,158,.44)');
+halo.addColorStop(.28,'rgba(255,212,135,.23)');
+halo.addColorStop(1,'rgba(255,205,130,0)');
+glowContext.fillStyle=halo;glowContext.fillRect(0,0,128,128);
+const haloTexture=new THREE.CanvasTexture(lightCanvas);haloTexture.colorSpace=THREE.SRGBColorSpace;
+const poolMaterial=new THREE.MeshBasicMaterial({map:haloTexture,transparent:true,opacity:.7,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,blending:THREE.AdditiveBlending});
+// Lantern posts with local real-time lighting and emissive glass.
+const lamps=[];
+for(const [x,z] of [[-2.8,-6.2],[2.8,-6.2],[-2.8,6.2],[2.8,6.2],[-9,2.8],[9,2.8],[-12.6,-13.8],[12.6,-13.8],[-12.6,13.8],[12.6,13.8]]){
+ cyl(x,1.05,z,.075,.10,2.10,wood,7);
+ block(x,2.22,z,.5,.58,.5,new THREE.MeshStandardMaterial({color:'#ffe1a2',emissive:'#ffc46f',emissiveIntensity:2.9}));
+ const glow=new THREE.PointLight('#ffc379',1.35,7,1.9);glow.position.set(x,2.23,z);scene.add(glow);lamps.push(glow);
+ const lightPool=new THREE.Mesh(new THREE.PlaneGeometry(5,5),poolMaterial);
+ lightPool.rotation.x=-Math.PI/2;lightPool.position.set(x,.094,z);lightPool.renderOrder=2;scene.add(lightPool);
+ // Lantern cage and metal detail to keep emissive light from reading as a solid cube.
+ for(const xo of [-.24,.24])for(const zo of [-.24,.24])
+   block(x+xo,2.22,z+zo,.045,.57,.045,wood);
+ block(x,2.58,z,.62,.10,.62,wood);
+}
+// Side-wall geometry in JS is derived from exactly the same access values
+// as world.generated.h and world.generated.rs. Never add invisible blockers.
+function accessSideWalls(access, rise, forward) {
+  const side=collisionWorld.accessSideWalls;
+  const len=access.zMax-access.zMin;
+  const visualLen=Math.hypot(len,rise);
+  const theta=(forward>0 ? -1 : 1)*Math.atan2(rise,len);
+  const material=mat('#817e75',1,'stone');
+  for(const sign of [-1,1]){
+    const edge=block(access.x+sign*access.halfX,rise*.5+side.visualHeight*.5,
+       (access.zMin+access.zMax)*.5,side.halfThickness*2,side.visualHeight,
+       visualLen,material,true);
+    edge.rotation.x=theta;
+  }
+}
+// v0.6: physically walkable elevated plaza, two access lanes (slope / stairs).
+// Visual geometry uses the same elevation fields as C-WASM and Rust-WASM.
+const elevationSpec=collisionWorld.elevation;
+const deck=elevationSpec.deck,access=elevationSpec.access;
+const cliff=mat('#5f605a',1,'stone'),deckTop=mat('#b7aa8b',1,'stone'),slopeTop=mat('#9ca58e',1,'stone'),stepStone=mat('#b3a489',1,'stone');
+const deckLength=deck.zMax-deck.zMin,deckWidth=2*deck.halfX;
+block(deck.x,deck.height*.5,(deck.zMin+deck.zMax)*.5,deckWidth,deck.height,deckLength,cliff,true);
+block(deck.x,deck.height+.047,(deck.zMin+deck.zMax)*.5,deckWidth+.04,.094,deckLength+.04,deckTop,true);
+const stairZLength=(access.zMax-access.zMin)/access.steps;
+// Ramp left lane; cross section is an inclined rectangular slab.
+const slopeLength=Math.hypot(access.zMax-access.zMin,deck.height);
+const rampWidth=access.halfX+access.stairsFromX;
+const rampCenterX=(access.stairsFromX-access.halfX)*.5;
+const ramp=block(rampCenterX,deck.height*.5,(access.zMin+access.zMax)*.5,rampWidth,.13,slopeLength,slopeTop,true);
+ramp.rotation.x=-Math.atan2(deck.height,access.zMax-access.zMin);
+// Right lane: discrete visible treads. Collision WASM mirrors every step.
+for(let k=0;k<access.steps;k++){
+ const height=(k+1)*deck.height/access.steps;
+ block((access.stairsFromX+access.halfX)*.5,height*.5,access.zMin+(k+.5)*stairZLength,
+       access.halfX-access.stairsFromX,height,stairZLength-.018,stepStone,true);
+}
+accessSideWalls(access,deck.height,1);
+// v0.0.5: south-facing ramp connects the original high plaza to the forest road,
+// creating a round-trip route; dimensions come from the same WASM world JSON.
+const south=collisionWorld.southAccess;
+const southLen=south.zMax-south.zMin;
+const southRamp=block(south.x,deck.height*.5,(south.zMin+south.zMax)*.5,south.halfX*2,.14,
+  Math.hypot(southLen,deck.height),slopeTop,true);
+southRamp.rotation.x=Math.atan2(deck.height,southLen);
+accessSideWalls(south,deck.height,-1);
+
+// Gentle accent rails visually identify the ramp vs stairs.
+for(const sx of [-access.halfX,access.halfX]){
+  const rail=block(sx,deck.height*.58,(access.zMin+access.zMax)*.5,.10,.09,slopeLength,wood);
+  rail.rotation.x=-Math.atan2(deck.height,access.zMax-access.zMin);
+}
+// Existing northern residential terrace (high ground) and access facing the main square.
+// Map data is also compiled into C/Rust-WASM for physical elevation and blocking.
+const upperSpec=collisionWorld.upperVillage;
+const upperDeck=upperSpec.deck, upperAccess=upperSpec.access;
+const upperCenterZ=(upperDeck.zMin+upperDeck.zMax)*.5;
+const upperWidth=upperDeck.halfX*2, upperLength=upperDeck.zMax-upperDeck.zMin;
+const upperWall=mat('#646d67',1,'stone'),upperFlagstone=mat('#bdb5a0',1,'stone');
+block(upperDeck.x,upperDeck.height*.5,upperCenterZ,upperWidth,upperDeck.height,upperLength,upperWall,true);
+block(upperDeck.x,upperDeck.height+.055,upperCenterZ,upperWidth+.08,.11,upperLength+.08,upperFlagstone,true);
+// Stone apron / approach toward the stairs, continuing central path.
+const nearEnd=upperAccess.zMax,farEnd=upperAccess.zMin;
+const upperStairLen=(nearEnd-farEnd)/upperAccess.steps;
+const upperSlopeLen=Math.hypot(nearEnd-farEnd,upperDeck.height);
+const slopeX=(upperAccess.stairsFromX-upperAccess.halfX)/2;
+const slopeW=upperAccess.halfX+upperAccess.stairsFromX;
+const upperRamp=block(slopeX,upperDeck.height*.5,(nearEnd+farEnd)*.5,slopeW,.14,upperSlopeLen,slopeTop,true);
+upperRamp.rotation.x=Math.atan2(upperDeck.height,nearEnd-farEnd);
+for(let k=0;k<upperAccess.steps;k++){
+ const stepHeight=(k+1)*upperDeck.height/upperAccess.steps;
+ block((upperAccess.stairsFromX+upperAccess.halfX)*.5,stepHeight*.5,nearEnd-(k+.5)*upperStairLen,
+       upperAccess.halfX-upperAccess.stairsFromX,stepHeight,upperStairLen-.015,stepStone,true);
+}
+accessSideWalls(upperAccess,upperDeck.height,-1);
+// Cliff edges and parapet (leave stair opening). Houses are above ground here.
+for(const sign of [-1,1]){
+ block(upperDeck.x+sign*(upperDeck.halfX-.13),upperDeck.height+.29,upperCenterZ,.28,.56,upperLength,stone,true);
+}
+block(0,upperDeck.height+.28,upperDeck.zMin+.16,upperWidth,.55,.30,stone,true);
+const entranceGap=upperAccess.halfX+.20, parapetSpan=(upperWidth-2*entranceGap)/2;
+for(const sign of [-1,1]){
+ const px=sign*(entranceGap+parapetSpan/2);
+ block(px,upperDeck.height+.27,upperDeck.zMax-.15,parapetSpan,.53,.30,stone,true);
+}
+// Higher paving and central approach, clearly visible when looking up stairs.
+block(0,upperDeck.height+.125,-12.75,3.2,.04,2.15,road);
+block(0,upperDeck.height+.126,-15.4,3.0,.045,3.4,paving);
+for(const sign of [-1,1])for(const zz of [-13.3,-17.4]){
+ const lanternBaseX=sign*9.25;
+ block(lanternBaseX,upperDeck.height+.43,zz,.14,.73,.14,wood,true);
+ const lantern=sphere(lanternBaseX,upperDeck.height+.84,zz,.16,mat('#f6c980'));
+ lantern.material.emissive=new THREE.Color('#ffc785');lantern.material.emissiveIntensity=.6;
+}
+const elevationGuide=new THREE.Group();elevationGuide.visible=false;scene.add(elevationGuide);
+const elevationLine=new THREE.LineBasicMaterial({color:0x9ce8ef,depthTest:false});
+function footprint(xMin,xMax,zMin,zMax,y){
+ const points=[[xMin,zMin],[xMax,zMin],[xMax,zMax],[xMin,zMax],[xMin,zMin]].map(([x,z])=>new THREE.Vector3(x,y,z));
+ const g=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),elevationLine);g.renderOrder=28;elevationGuide.add(g);
+}
+footprint(deck.x-deck.halfX,deck.x+deck.halfX,deck.zMin,deck.zMax,deck.height+.16);
+footprint(access.x-access.halfX,access.x+access.halfX,access.zMin,access.zMax,.2);
+footprint(upperDeck.x-upperDeck.halfX,upperDeck.x+upperDeck.halfX,upperDeck.zMin,upperDeck.zMax,upperDeck.height+.18);
+footprint(upperAccess.x-upperAccess.halfX,upperAccess.x+upperAccess.halfX,upperAccess.zMin,upperAccess.zMax,.2);
+$('elevation-guide').addEventListener('change',e=>elevationGuide.visible=e.target.checked);
+// Occlusion is strictly a camera effect. It never changes physics or visibility of the player.
+const occlusionRay=new THREE.Raycaster();
+const occlusionTargets=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];
+const occlusionRight=new THREE.Vector3();
+const occlusionDirection=new THREE.Vector3();
+const occlusionOwner=new WeakMap();
+const occluderMeshes=[];
+for(const group of occlusionSets)for(const mesh of group.meshes){occlusionOwner.set(mesh,group);occluderMeshes.push(mesh);}
+let occlusionTimer=0;
+function updateOcclusion(dt,playerX,playerY,playerZ){
+  occlusionTimer+=dt;
+  const enabled=$('occlusion-enabled').checked;
+  if(occlusionTimer<.075 && enabled)return;
+  occlusionTimer=0;
+  const obstructing=new Set();
+  if(enabled){
+    // A single ray at chest height misses crowns, roof overhangs and large
+    // sprites. Sample the feet, chest, head and two lateral silhouette edges.
+    camera.updateMatrixWorld();
+    occlusionRight.setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(.53);
+    const feetY=playerY+.28, chestY=playerY+1.55, headY=playerY+2.85;
+    occlusionTargets[0].set(playerX,feetY,playerZ);
+    occlusionTargets[1].set(playerX,chestY,playerZ);
+    occlusionTargets[2].set(playerX,headY,playerZ);
+    occlusionTargets[3].set(playerX,chestY,playerZ).add(occlusionRight);
+    occlusionTargets[4].set(playerX,chestY,playerZ).sub(occlusionRight);
+    occlusionTargets[5].set(playerX,headY,playerZ).add(occlusionRight);
+    occlusionTargets[6].set(playerX,headY,playerZ).sub(occlusionRight);
+    for(const aim of occlusionTargets){
+      occlusionDirection.copy(aim).sub(camera.position);
+      const distance=occlusionDirection.length();
+      if(distance<=.1)continue;
+      occlusionRay.set(camera.position,occlusionDirection.divideScalar(distance));
+      occlusionRay.far=distance-.1;
+      for(const hit of occlusionRay.intersectObjects(occluderMeshes.filter(mesh=>mesh.visible&&mesh.parent?.visible!==false),false)){
+        const group=occlusionOwner.get(hit.object);if(group)obstructing.add(group);
+      }
+    }
+  }
+  const faded=Number($('occlusion-alpha').value)/100;
+  for(const group of occlusionSets){
+    const wanted=obstructing.has(group)?faded:1;
+    if(Math.abs(group.opacity-wanted)<.003)continue;
+    group.opacity=wanted;
+    for(const mesh of group.meshes){
+      const m=mesh.material;
+      m.opacity=wanted;
+      m.transparent=wanted<.999;
+      m.depthWrite=wanted>=.999;
+      m.needsUpdate=true;
+    }
+  }
+}
+$('occlusion-alpha').addEventListener('input',e=>$('occlusion-alpha-out').textContent=e.target.value+'%');
+const CAMERA_CLEARANCE_KEY='hd2d-camera-front-clearance-v061';
+let cameraClearance=1.0;
+try {
+  const n=Number(localStorage.getItem(CAMERA_CLEARANCE_KEY));
+  if(localStorage.getItem(CAMERA_CLEARANCE_KEY)!==null && Number.isFinite(n))cameraClearance=THREE.MathUtils.clamp(n,0,2);
+}catch{}
+$('camera-clearance').value=String(cameraClearance);
+$('camera-clearance-out').textContent=cameraClearance.toFixed(1);
+$('camera-clearance').addEventListener('input',e=>{
+  cameraClearance=THREE.MathUtils.clamp(Number(e.target.value)||0,0,2);
+  $('camera-clearance-out').textContent=cameraClearance.toFixed(1);
+  try{localStorage.setItem(CAMERA_CLEARANCE_KEY,String(cameraClearance));}catch{}
+});
+
+// Soft cool fill plus warm rim separates the sprite silhouette from scenery.
+const ambient=new THREE.HemisphereLight('#d9e5ff','#43352d',1.08);scene.add(ambient);
+const fillLight=new THREE.DirectionalLight('#8cbbe0',.6);fillLight.position.set(-13,7,-8);scene.add(fillLight);
+const rimLight=new THREE.DirectionalLight('#ffcc90',.72);rimLight.position.set(-7,12,-14);scene.add(rimLight);
+const sun=new THREE.DirectionalLight('#fff0cf',2.2);sun.position.set(13,21,10);sun.castShadow=true;
+// Keep the directional shadow frustum near the active outdoor district.
+scene.add(sun.target);
+sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-30;sun.shadow.camera.right=30;sun.shadow.camera.top=29;sun.shadow.camera.bottom=-29;sun.shadow.normalBias=.035;scene.add(sun);
+
+// v0.5: calibrated body-size and foot pivots with per-animation corrections.
+// The sprite bundle is generated at build time and embedded in index.html.
+const SPRITE_BUNDLES={{SPRITE_BUNDLES}};
+const ACTIONS=['idle','walk','run','jump','attack'];
+const SPRITE_SET_LABELS={haruka:'Haruka（新画像）',legacy:'オリジナル（旧画像）'};
+let currentSpriteSet='haruka';
+try{const previous=localStorage.getItem('xdimension-v15-sprite-set');if(SPRITE_BUNDLES[previous])currentSpriteSet=previous;}catch{}
+$('sprite-set').value=currentSpriteSet;
+let activeSpriteBundle=SPRITE_BUNDLES[currentSpriteSet];
+let SPRITE_CONFIG=activeSpriteBundle.actions;
+let spriteSheets={};
+const {width:atlasWidth,height:atlasHeight}=SPRITE_BUNDLES.haruka.cell;
+let atlasColumns=activeSpriteBundle.cell.columns;
+let pivotX=activeSpriteBundle.cell.pivotX,pivotY=activeSpriteBundle.cell.pivotY;
+let sourceAtlasWidth=activeSpriteBundle.cell.width,sourceAtlasHeight=activeSpriteBundle.cell.height;
+let spriteLoadingId=0;
+async function loadSpriteSet(name){
+  // Only decode the currently selected 5 atlases, not both sets at startup.
+  const token=++spriteLoadingId;
+  const bundle=SPRITE_BUNDLES[name];
+  const pending={};
+  const work=Object.entries(bundle.actions).flatMap(([action,cfg])=>{
+    pending[action]={};
+    return Object.entries(cfg.directions).map(async ([direction,url])=>{
+      const image=new Image();image.src=url;await image.decode();pending[action][direction]=image;
+    });
+  });
+  await Promise.all(work);
+  if(token!==spriteLoadingId)return false;
+  // Release old decoded images; references in embedded data do not decode until used.
+  spriteSheets=pending;
+  currentSpriteSet=name;
+  activeSpriteBundle=bundle;
+  SPRITE_CONFIG=bundle.actions;
+  atlasColumns=bundle.cell.columns;
+  pivotX=bundle.cell.pivotX;pivotY=bundle.cell.pivotY;
+  sourceAtlasWidth=bundle.cell.width;sourceAtlasHeight=bundle.cell.height;
+  return true;
+}
+await loadSpriteSet(currentSpriteSet);
+// v0.0.14: NEVER resize the canvas owned by CanvasTexture on a toggle.
+// WebGPU texture dimensions are tied to the canvas at creation time. Resizing
+// a live CanvasTexture caused the character to disappear when Pixel Art was OFF.
+let pixelDisplay=$('pixels').checked;
+const spriteCanvas=document.createElement('canvas');
+spriteCanvas.width=atlasWidth;
+spriteCanvas.height=atlasHeight;
+const spriteCtx=spriteCanvas.getContext('2d',{alpha:true});
+// Downsample only in a separate temporary canvas; final texture stays 512x512.
+const pixelCanvas=document.createElement('canvas');
+const PIXEL_RESOLUTION_KEY='xdimension-v15-pixel-resolution';
+let pixelResolution=160;
+try{const stored=Number(localStorage.getItem(PIXEL_RESOLUTION_KEY));if(stored>=64&&stored<=512)pixelResolution=Math.round(stored/16)*16;}catch{}
+$('pixel-resolution').value=String(pixelResolution);
+pixelCanvas.width=pixelResolution;
+pixelCanvas.height=pixelResolution;
+const pixelCtx=pixelCanvas.getContext('2d',{alpha:true});
+const heroTexture=new THREE.CanvasTexture(spriteCanvas);
+heroTexture.colorSpace=THREE.SRGBColorSpace;
+heroTexture.magFilter=THREE.LinearFilter;
+heroTexture.minFilter=THREE.LinearFilter;
+heroTexture.generateMipmaps=false;
+const heroMaterial=new THREE.SpriteMaterial({map:heroTexture,transparent:true,alphaTest:.035,depthWrite:false,toneMapped:false});
+const hero=new THREE.Sprite(heroMaterial);
+// IMPORTANT: Sprite.center is the pivot in bottom-up UV space. This places
+// the identical foot pixel over the world ground point for EVERY animation.
+hero.center.set(pivotX/sourceAtlasWidth,1-pivotY/sourceAtlasHeight);
+// 275px body on new atlas = same world height as original 172px body.
+const WORLD_PER_SPRITE_PIXEL=.0168;
+const SPRITE_WORLD_RATIOS={haruka:172/275,legacy:1};
+// Haruka calibration is independent of legacy character settings kept in localStorage.
+const TUNING_KEYS={haruka:'xdimension-haruka-v1-character-tuning',legacy:'hd2d-lab-v0.5-character-tuning'};
+// Haruka action artwork has smaller occupied height than legacy in jump/attack.
+// Measured median alpha-bounds (legacy/Haruka packed frames): jump 158/222px,
+// attack 204/269px, compared to idle 171/276px.
+// Body scale is normalized by 172/275 across sets; these per-pose defaults
+// preserve the apparent size of legacy jump 110% and legacy attack 85%.
+const TUNING_DEFAULTS_BY_SET={
+  haruka:{idle:{scale:100,x:0,y:0},walk:{scale:100,x:0,y:0},run:{scale:100,x:0,y:0},jump:{scale:125,x:0,y:0},attack:{scale:103,x:0,y:0}},
+  legacy:{idle:{scale:100,x:0,y:0},walk:{scale:100,x:0,y:0},run:{scale:100,x:0,y:0},jump:{scale:110,x:0,y:0},attack:{scale:85,x:0,y:0}}
+};
+// These are starting estimates: pose and sword are excluded from the intent of the scale.
+let TUNING_DEFAULTS=TUNING_DEFAULTS_BY_SET[currentSpriteSet];
+const restrict=(value,min,max,otherwise)=>{
+  const n=Number(value);
+  return Number.isFinite(n)?Math.max(min,Math.min(max,Math.round(n))):otherwise;
+};
+function sanitizeTuning(value){
+  const result={};
+  for(const action of ACTIONS){
+    const source=(value&&typeof value==='object'&&value[action])||{};
+    const defaults=TUNING_DEFAULTS[action];
+    result[action]={scale:restrict(source.scale,50,150,defaults.scale),
+      x:restrict(source.x,-100,100,defaults.x),y:restrict(source.y,-100,100,defaults.y)};
+  }
+  return result;
+}
+// Migrate earlier default jump values (130%, and legacy 95%) once.
+// Other customized values are preserved. Exactly 95/130 cannot be distinguished
+// from explicitly customized values and can be readjusted in the UI.
+const JUMP_DEFAULT_MIGRATION='xdimension-haruka-v1-jump-110-migrated';
+const ACTION_SIZE_V16_MIGRATION='xdimension-haruka-v16-action-size-migrated';
+function loadTuning(){
+  let raw=null;
+  try{raw=JSON.parse(localStorage.getItem(TUNING_KEYS[currentSpriteSet]));}catch{}
+  const result=sanitizeTuning(raw);
+  try{
+    if(currentSpriteSet==='haruka'&&!localStorage.getItem(JUMP_DEFAULT_MIGRATION)){
+      if(raw && [95,130].includes(Number(raw.jump?.scale))){
+        result.jump.scale=110;
+        localStorage.setItem(TUNING_KEYS[currentSpriteSet],JSON.stringify(result));
+      }
+      localStorage.setItem(JUMP_DEFAULT_MIGRATION,'1');
+    }
+    // Upgrade the old defaults only; preserve user changes and X/Y offsets.
+    if(currentSpriteSet==='haruka'&&!localStorage.getItem(ACTION_SIZE_V16_MIGRATION)){
+      let changed=false;
+      if(raw && [95,110,130].includes(Number(raw.jump?.scale))){result.jump.scale=125;changed=true;}
+      if(raw && Number(raw.attack?.scale)===85){result.attack.scale=103;changed=true;}
+      if(changed)localStorage.setItem(TUNING_KEYS[currentSpriteSet],JSON.stringify(result));
+      localStorage.setItem(ACTION_SIZE_V16_MIGRATION,'1');
+    }
+  }catch{}
+  return result;
+}
+let spriteTuning=loadTuning();
+let tuningAction='attack';
+function storeTuning(){
+  try{localStorage.setItem(TUNING_KEYS[currentSpriteSet],JSON.stringify(spriteTuning));$('tune-status').textContent='✓ 自動保存しました';}
+  catch{$('tune-status').textContent='ブラウザ保存が使えません。JSONで書き出して保管してください。';}
+}
+function refreshTuningUI(){
+  const a=spriteTuning[tuningAction];
+  for(const [prop,id,suffix] of [['scale','tune-scale','%'],['x','tune-x','px'],['y','tune-y','px']]){
+    $(id).value=a[prop];$(id+'-out').textContent=(prop!=='scale'&&a[prop]>0?'+':'')+a[prop]+suffix;
+  }
+}
+let appliedSizeKey='';
+function updateHeroSize(action='idle'){
+  const global=Number($('char-size').value)/100;
+  const adj=spriteTuning[action]||TUNING_DEFAULTS.idle;
+  const cacheKey=`${currentSpriteSet}/${action}/${global}/${adj.scale}/${adj.x}/${adj.y}`;
+  if(cacheKey===appliedSizeKey)return;
+  appliedSizeKey=cacheKey;
+  const factor=global*adj.scale/100;
+  const worldRatio=SPRITE_WORLD_RATIOS[currentSpriteSet];
+  hero.scale.set(sourceAtlasWidth*WORLD_PER_SPRITE_PIXEL*worldRatio*factor,sourceAtlasHeight*WORLD_PER_SPRITE_PIXEL*worldRatio*factor,1);
+  // Sprite.center defines the image pivot on the ground. A negative pivot shift
+  // slides the character without resizing its atlas or changing collision math.
+  hero.center.set((pivotX-adj.x)/sourceAtlasWidth,1-(pivotY+adj.y)/sourceAtlasHeight);
+  $('char-size-out').textContent=Math.round(global*100)+'%';
+}
+refreshTuningUI();
+$('char-size').addEventListener('input',()=>updateHeroSize(heroAction));
+$('tune-action').addEventListener('change',e=>{
+  tuningAction=e.target.value;
+  $('char-preview').value=tuningAction;
+  heroAnimClock=0;oneShot=null;lastDrawKey='';
+  refreshTuningUI();updateHeroSize(tuningAction);refreshSpriteInfo();
+});
+for(const [id,prop] of [['tune-scale','scale'],['tune-x','x'],['tune-y','y']]){
+  $(id).addEventListener('input',e=>{
+    spriteTuning[tuningAction][prop]=restrict(e.target.value,prop==='scale'?50:-100,prop==='scale'?150:100,TUNING_DEFAULTS[tuningAction][prop]);
+    refreshTuningUI();updateHeroSize(heroAction);storeTuning();refreshSpriteInfo();
+  });
+}
+$('tune-action-reset').addEventListener('click',()=>{
+  spriteTuning[tuningAction]={...TUNING_DEFAULTS[tuningAction]};
+  refreshTuningUI();updateHeroSize(heroAction);storeTuning();refreshSpriteInfo();
+});
+$('tune-all-reset').addEventListener('click',()=>{
+  spriteTuning=sanitizeTuning(null);
+  refreshTuningUI();updateHeroSize(heroAction);storeTuning();refreshSpriteInfo();
+});
+$('tune-export').addEventListener('click',()=>{
+  const contents=JSON.stringify({format:'HD2D_CHARACTER_TUNING',version:1,animations:spriteTuning},null,2);
+  const url=URL.createObjectURL(new Blob([contents],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='character-tuning.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $('tune-status').textContent='JSONファイルを書き出しました';
+});
+$('tune-import').addEventListener('change',async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+    if(file.size>64*1024)throw Error('設定ファイルが大きすぎます');
+    const data=JSON.parse(await file.text());
+    if(data.format!=='HD2D_CHARACTER_TUNING'||data.version!==1||!data.animations||typeof data.animations!=='object')throw Error('対応する設定JSONではありません');
+    spriteTuning=sanitizeTuning(data.animations);
+    refreshTuningUI();updateHeroSize(heroAction);storeTuning();refreshSpriteInfo();
+    $('tune-status').textContent='✓ JSON設定を読み込みました';
+  }catch(err){$('tune-status').textContent='読み込み失敗: '+err.message;}
+  e.target.value='';
+});
+$('tune-preview-auto').addEventListener('click',()=>{
+  setGameplayPreview();oneShot=null;heroAnimClock=0;lastDrawKey='';
+  $('tune-status').textContent='通常の操作モードに戻しました';
+});
+// When tuning a state, show that state immediately so the adjustment is visible.
+// Buttons and input values remain independent of the later sprite draw loop.
+updateHeroSize('idle');
+hero.position.set(0,.10,3.5);scene.add(hero);
+// Soft radial contact shadow anchors the 2D actor to the 3D terrain.
+const contactCanvas=document.createElement('canvas');contactCanvas.width=128;contactCanvas.height=128;
+const contactCtx=contactCanvas.getContext('2d');
+const contactGrad=contactCtx.createRadialGradient(64,64,3,64,64,63);
+contactGrad.addColorStop(0,'rgba(0,0,0,.56)');contactGrad.addColorStop(.42,'rgba(0,0,0,.29)');contactGrad.addColorStop(1,'rgba(0,0,0,0)');
+contactCtx.fillStyle=contactGrad;contactCtx.fillRect(0,0,128,128);
+const contactMap=new THREE.CanvasTexture(contactCanvas);
+const shadowMat=new THREE.MeshBasicMaterial({map:contactMap,transparent:true,opacity:.85,depthWrite:false});
+const heroShadow=new THREE.Mesh(new THREE.CircleGeometry(.69,20),shadowMat);
+heroShadow.rotation.x=-Math.PI/2;heroShadow.position.set(0,.07,3.5);scene.add(heroShadow);
+// All v0.8 enhancements can be disabled independently or together for comparison.
+const V08_CONTROLS=['focus-offset','contact-shadow-enabled','contact-shadow-opacity','dapple-enabled',
+ 'dapple-strength','shafts-enabled','shafts-strength','water-ripple-enabled',
+ 'water-ripple-strength','follow-speed','camera-lead'];
+function applyCinematicControls(){
+ for(const id of V08_CONTROLS){
+   const el=$(id),out=$(id+'-out');
+   if(!out)continue;
+   const value=Number(el.value);
+   out.textContent=id==='focus-offset'?(value===0?'±0.0':(value>0?'+':'')+value.toFixed(1)):
+     (id==='follow-speed'||id==='camera-lead')?value.toFixed(1):`${value}%`;
+ }
+ heroShadow.visible=$('contact-shadow-enabled').checked;
+ shadowMat.opacity=Number($('contact-shadow-opacity').value)/100;
+ const v08On=['dapple-enabled','shafts-enabled','water-ripple-enabled'].some(id=>$(id).checked);
+ $('cinematic-on').setAttribute('aria-pressed',String(v08On));
+ $('cinematic-off').setAttribute('aria-pressed',String(!v08On));
+}
+function setCinematicPreset(enabled){
+ const values={
+  'focus-offset':0,'contact-shadow-enabled':true,'contact-shadow-opacity':85,
+  'dapple-enabled':enabled,'dapple-strength':45,'shafts-enabled':enabled,
+  'shafts-strength':35,'water-ripple-enabled':enabled,'water-ripple-strength':60,
+  'follow-speed':2,'camera-lead':enabled?.6:0
+ };
+ for(const [id,value] of Object.entries(values)){
+   if($(id).type==='checkbox')$(id).checked=value;else $(id).value=String(value);
+ }
+ applyCinematicControls();
+}
+for(const id of V08_CONTROLS)$(id).addEventListener($(id).type==='checkbox'?'change':'input',applyCinematicControls);
+$('cinematic-on').addEventListener('click',()=>setCinematicPreset(true));
+$('cinematic-off').addEventListener('click',()=>setCinematicPreset(false));
+applyCinematicControls();
+
+const footGuide=new THREE.Mesh(new THREE.RingGeometry(.13,.22,32),new THREE.MeshBasicMaterial({color:'#73f0db',side:THREE.DoubleSide,depthWrite:false,depthTest:false}));
+footGuide.rotation.x=-Math.PI/2;footGuide.position.set(0,.09,3.5);footGuide.renderOrder=20;footGuide.visible=false;scene.add(footGuide);
+$('tune-guide').addEventListener('change',e=>{footGuide.visible=e.target.checked;});
+// Collision zones are generated from the same JSON used to compile C and Rust.
+const collisionOverlay=new THREE.Group();collisionOverlay.visible=false;scene.add(collisionOverlay);
+const hitLineMaterial=new THREE.LineBasicMaterial({color:0xffda7b,depthTest:false,transparent:true,opacity:.92});
+function addColliderOutline(x,z,hx,hz,r){
+  // Exact Minkowski sum (AABB + hero circle), including rounded corners.
+  const corners=[[x+hx,z+hz,0],[x-hx,z+hz,Math.PI/2],
+                 [x-hx,z-hz,Math.PI],[x+hx,z-hz,3*Math.PI/2]];
+  const pts=[];
+  for(const [cx,cz,start] of corners)for(let i=0;i<=12;i++){
+    const a=start+i/12*Math.PI/2;
+    pts.push(new THREE.Vector3(cx+Math.cos(a)*r,.12,cz+Math.sin(a)*r));
+  }
+  const lines=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),hitLineMaterial);
+  lines.renderOrder=30;collisionOverlay.add(lines);
+}
+function addColliderCircle(x,z,r){
+  const a=[];for(let i=0;i<64;i++){const t=i*Math.PI*2/64; a.push(new THREE.Vector3(x+Math.cos(t)*r,.12,z+Math.sin(t)*r));}
+  const l=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(a),hitLineMaterial);
+  l.renderOrder=30;collisionOverlay.add(l);
+}
+// Exact rounded outline corresponds to the WASM circle-vs-AABB test.
+for(const b of collisionWorld.houses)addColliderOutline(b.x,b.z,b.halfX,b.halfZ,collisionWorld.playerRadius);
+addColliderCircle(collisionWorld.fountain.x,collisionWorld.fountain.z,collisionWorld.fountain.radius+collisionWorld.playerRadius);
+for(const b of collisionWorld.trees)addColliderCircle(b.x,b.z,b.radius+collisionWorld.playerRadius);
+// Stair side walls: show the exact circular-player offset as yellow outlines.
+for(const access of [collisionWorld.elevation.access,collisionWorld.upperVillage.access]) {
+  const side=collisionWorld.accessSideWalls;
+  const z=(access.zMin+access.zMax)/2;
+  const halfZ=(access.zMax-access.zMin)/2+side.endCap;
+  for(const sign of [-1,1])
+    addColliderOutline(access.x+sign*access.halfX,z,side.halfThickness,halfZ,collisionWorld.playerRadius);
+}
+// Orange outlines show the camera-facing clearance added ON TOP of the
+// camera-independent base collision hull. Both are derived from the same formula.
+const cameraCollisionOverlay=new THREE.Group();cameraCollisionOverlay.visible=false;scene.add(cameraCollisionOverlay);
+const cameraCollisionMaterial=new THREE.LineBasicMaterial({color:0xff8b57,depthTest:false,transparent:true,opacity:.93});
+const cameraClearanceLines=[];
+for(const shape of [...collisionWorld.houses.map(v=>({kind:'house',item:v})),
+  ...[collisionWorld.fountain,...collisionWorld.trees].map(v=>({kind:'circle',item:v}))]) {
+  const line=new THREE.LineLoop(new THREE.BufferGeometry(),cameraCollisionMaterial);
+  line.renderOrder=31;cameraCollisionOverlay.add(line);
+  cameraClearanceLines.push({shape,line});
+}
+let lastGuideKey='';
+function updateCameraCollisionOverlay(){
+  const enabled=$('collision-guide').checked;
+  cameraCollisionOverlay.visible=enabled && cameraClearance>0;
+  if(!cameraCollisionOverlay.visible)return;
+  const vx=Math.sin(azimuth),vz=Math.cos(azimuth),m=cameraClearance;
+  const key=`${vx.toFixed(3)}:${vz.toFixed(3)}:${m.toFixed(2)}`;
+  if(lastGuideKey===key)return;
+  lastGuideKey=key;
+  for(const {shape,line} of cameraClearanceLines){
+    let pts=[];
+    const q=shape.item,r=collisionWorld.playerRadius;
+    if(shape.kind==='house'){
+      const minX=q.x-q.halfX+Math.min(0,vx*m),maxX=q.x+q.halfX+Math.max(0,vx*m);
+      const minZ=q.z-q.halfZ+Math.min(0,vz*m),maxZ=q.z+q.halfZ+Math.max(0,vz*m);
+      const corners=[[maxX,maxZ,0],[minX,maxZ,Math.PI/2],[minX,minZ,Math.PI],[maxX,minZ,Math.PI*1.5]];
+      for(const [cx,cz,start] of corners)for(let i=0;i<=12;i++){
+        const a=start+i/12*Math.PI/2;
+        pts.push(new THREE.Vector3(cx+Math.cos(a)*r,.14,cz+Math.sin(a)*r));
+      }
+    }else{
+      const rad=q.radius+r;
+      for(let i=0;i<96;i++){
+        const a=i*Math.PI*2/96,nx=Math.cos(a),nz=Math.sin(a);
+        const toward=(nx*vx+nz*vz)>0?m:0;
+        pts.push(new THREE.Vector3(q.x+nx*rad+vx*toward,.14,q.z+nz*rad+vz*toward));
+      }
+    }
+    line.geometry.dispose();
+    line.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+  }
+}
+$('collision-guide').addEventListener('change',e=>{collisionOverlay.visible=e.target.checked;cameraCollisionOverlay.visible=e.target.checked;lastGuideKey='';});
+let heroAction='idle',heroFacing='right',heroAnimClock=0,oneShot=null,lastDrawKey='';
+function setGameplayPreview(){
+  const select=$('char-preview');
+  if(select.value!=='auto'){
+    select.value='auto';heroAnimClock=0;lastDrawKey='';
+  }
+}
+let lastScreenSide='right',spriteFacingStatus='right';
+let azimuth=.71; // initialized before the very first drawSprite()
+// Screen-right is the horizontal camera basis vector (cos(yaw), 0, -sin(yaw)).
+// Screen projection is used only for side-sprite fallback; authored directional art
+// still uses its specified world direction. Near edge-on vertical motion, keep the
+// previous left/right value to avoid jitter from tiny camera/float differences.
+function projectedSide(dx,dz,yaw,previous='right'){
+  const speed=Math.hypot(dx,dz);
+  if(speed===0)return previous;
+  const screenX=dx*Math.cos(yaw)-dz*Math.sin(yaw);
+  return Math.abs(screenX)<0.04*speed?previous:(screenX<0?'left':'right');
+}
+function beginHeroAction(action){
+  if(!spriteSheets[action])return;
+  if(action==='jump' && !engine.jump_player())return;
+  // Physical JUMP/ATTACK keys must override the sprite calibration preview.
+  setGameplayPreview();
+  oneShot={action,elapsed:0,duration:action==='jump'?0.88:SPRITE_CONFIG[action].frames/SPRITE_CONFIG[action].fps};
+  heroAnimClock=0;
+}
+function directionFromInput(dx,dz){
+  if(!dx&&!dz)return heroFacing;
+  if(dx&&dz)return (dz>0?'front':'back')+'_'+(dx>0?'right':'left');
+  if(dx)return dx>0?'right':'left';
+  return dz>0?'front':'back';
+}
+function resolveSprite(action,facing,dx=0,dz=0){
+  const dirs=spriteSheets[action];
+  if(dirs[facing])return {image:dirs[facing],flip:false,label:facing};
+  const diagonal=facing.includes('_');
+  const depth=facing.startsWith('front')?'front':facing.startsWith('back')?'back':null;
+  // If genuine directional art is available, use it instead of the side fallback.
+  if(diagonal&&depth&&dirs[depth])return {image:dirs[depth],flip:false,label:depth+' (4方向代用)'};
+  // With only a side-view sheet, follow the actual on-screen horizontal travel,
+  // not the last *world* X key. This works for both diagonal and vertical moves
+  // and after camera rotation. Mirroring will not invent a true front/back view.
+  if(dirs.side){
+    lastScreenSide=projectedSide(dx,dz,azimuth,lastScreenSide);
+    return {image:dirs.side,flip:lastScreenSide==='left',label:facing+' (画面'+(lastScreenSide==='left'?'左':'右')+'向き仮表示)'};
+  }
+  const first=Object.keys(dirs)[0];
+  return {image:dirs[first],flip:false,label:first+' (仮表示)'};
+}
+function drawSprite(action,frame,facing,dx=0,dz=0){
+  const resolved=resolveSprite(action,facing,dx,dz);
+  spriteFacingStatus=resolved.label;
+  const key=`${currentSpriteSet}:${action}:${frame}:${resolved.label}:${resolved.flip}:${pixelDisplay}:${pixelResolution}`;
+  if(key===lastDrawKey)return;
+  lastDrawKey=key;
+  const c=pixelDisplay?pixelCanvas:spriteCanvas;
+  const ctx=pixelDisplay?pixelCtx:spriteCtx;
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.save();
+  if(resolved.flip){
+    // Mirror around the FOOT pivot, not the center of the sword bounding box.
+    ctx.translate(2*(pivotX/sourceAtlasWidth)*c.width,0);ctx.scale(-1,1);
+  }
+  ctx.imageSmoothingEnabled=!pixelDisplay;
+  ctx.drawImage(resolved.image,(frame%atlasColumns)*sourceAtlasWidth,Math.floor(frame/atlasColumns)*sourceAtlasHeight,
+                sourceAtlasWidth,sourceAtlasHeight,0,0,c.width,c.height);
+  ctx.restore();
+  if(pixelDisplay){
+    // Nearest upsampling on stable CanvasTexture (never change its dimensions).
+    spriteCtx.clearRect(0,0,spriteCanvas.width,spriteCanvas.height);
+    spriteCtx.imageSmoothingEnabled=false;
+    spriteCtx.drawImage(pixelCanvas,0,0,spriteCanvas.width,spriteCanvas.height);
+  }
+  heroTexture.needsUpdate=true;
+}
+drawSprite('idle',0,'right');
+function humanMib(bytes){return (bytes/1024/1024).toFixed(1)+' MiB';}
+function refreshSpriteInfo(){
+  const a=$('char-preview').value==='auto'?(heroAction||'idle'):$('char-preview').value;
+  const cfg=SPRITE_CONFIG[a]||SPRITE_CONFIG.idle;
+  const source=cfg.sourceFrame||{width:sourceAtlasWidth,height:sourceAtlasHeight};
+  const packed=activeSpriteBundle.cell;
+  const processed=pixelDisplay?`${pixelResolution} × ${pixelResolution} px`:`${atlasWidth} × ${atlasHeight} px`;
+  const packBytes=Object.values(activeSpriteBundle.actions).reduce((sum,act)=>sum+Object.keys(act.directions).length*packed.width*packed.height*25*4,0);
+  const currentWebp=cfg.compressedBytes||0;
+  $('sprite-set-status').textContent=SPRITE_SET_LABELS[currentSpriteSet];
+  $('pixel-resolution-out').textContent=`${pixelResolution} × ${pixelResolution} px`;
+  $('pixel-resolution').disabled=!pixelDisplay;
+  $('sprite-quality-status').textContent=pixelDisplay?`画像品質：Pixel Art ${pixelResolution}px（Nearest拡大）`:`画像品質：高精細（${atlasWidth}pxの描画キャンバス）`;
+  const html=(label,value)=>`<dt>${label}</dt><dd>${value}</dd>`;
+  $('sprite-info-body').innerHTML='<dl>'+
+   html('使用素材',SPRITE_SET_LABELS[currentSpriteSet])+
+   html('動作 / フレーム',`${a} · ${cfg.frames}コマ · ${cfg.fps}fps`)+
+   html('動作別の表示倍率',`${spriteTuning[a]?.scale ?? TUNING_DEFAULTS[a]?.scale ?? 100}%`)+
+   html('元画像 / コマ',`${source.width} × ${source.height} px`)+
+   html('ゲーム用 / コマ',`${packed.width} × ${packed.height} px`)+
+   html('Pixel Art',pixelDisplay?'ON':'OFF')+
+   html('処理解像度',processed)+
+   html('Pixel Art拡大倍率',pixelDisplay?`${(atlasWidth/pixelResolution).toFixed(2)} 倍（処理解像度→描画Canvas）`:'OFF・縮小処理なし')+
+   html('表示方法',pixelDisplay?`${pixelResolution}pxに縮小 → ${atlasWidth}pxにNearest拡大 → 3D表示`:`${atlasWidth}pxで描画 → 3D表示（Linear補間）`)+
+   html('圧縮済み画像',currentWebp?humanMib(currentWebp):'—')+
+   html('使用素材のアトラス展開量（概算）',humanMib(packBytes))+'</dl>'+
+   '<small>※ アトラスのRGBA展開量は目安です。GPUの実測値ではありません。</small>';
+}
+let displayedInfoAction='';
+$('char-preview').addEventListener('change',()=>{heroAnimClock=0;oneShot=null;lastDrawKey='';refreshSpriteInfo();});
+$('sprite-set').addEventListener('change',async e=>{
+  const select=e.currentTarget;
+  const selected=select.value;
+  select.disabled=true;
+  $('sprite-set-status').textContent='画像を読み込み中…';
+  try{
+    if(await loadSpriteSet(selected)){
+      TUNING_DEFAULTS=TUNING_DEFAULTS_BY_SET[selected];
+      spriteTuning=loadTuning();
+      refreshTuningUI();appliedSizeKey='';
+      lastDrawKey='';heroAnimClock=0;oneShot=null;
+      updateHeroSize(heroAction);drawSprite(heroAction,0,heroFacing);
+      try{localStorage.setItem('xdimension-v15-sprite-set',selected);}catch{}
+    }
+  }catch(err){console.error('Sprite set load failed',err);$('tune-status').textContent='画像の読み込みに失敗しました: '+err.message;select.value=currentSpriteSet;}
+  finally{select.disabled=false;refreshSpriteInfo();}
+});
+$('pixel-resolution').addEventListener('input',e=>{
+  const next=Number(e.target.value);
+  pixelResolution=Math.max(64,Math.min(512,next));
+  pixelCanvas.width=pixelResolution;pixelCanvas.height=pixelResolution;
+  lastDrawKey='';refreshSpriteInfo();
+  try{localStorage.setItem(PIXEL_RESOLUTION_KEY,String(pixelResolution));}catch{}
+});
+refreshSpriteInfo();
+// Shape textures are generated locally and never require additional image files.
+// WebGPU TSL uses the very same alpha maps as WebGL PointsMaterial.
+const particleMasks={};
+for(const mode of ParticleShapes.PARTICLE_SHAPE_MODES){
+ const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
+ ParticleShapes.paintParticleMask(canvas.getContext('2d'),mode);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.colorSpace=THREE.SRGBColorSpace;
+ particleMasks[mode]=tex;
+}
+const flyPositions=new Float32Array(512*3);
+for(let i=0;i<512;i++){
+ flyPositions[i*3]=engine.terrain_noise(i,2)*25-12.5;
+ flyPositions[i*3+1]=.6+engine.terrain_noise(i,10)*3.4;
+ flyPositions[i*3+2]=engine.terrain_noise(i,20)*20-10;
+}
+const flyGeo=new THREE.BufferGeometry();flyGeo.setAttribute('position',new THREE.BufferAttribute(flyPositions,3));
+const fallbackFlies=new THREE.Points(flyGeo,new THREE.PointsMaterial({
+ color:'#ffe4a1',map:particleMasks.firefly,size:.30,transparent:true,
+ opacity:.70,depthWrite:false,alphaTest:.018,blending:THREE.AdditiveBlending
+}));
+fallbackFlies.frustumCulled=false;fallbackFlies.position.set(0,0,3.5);scene.add(fallbackFlies);
+function stepFallbackParticles(dt,mode){
+ const position=fallbackFlies.geometry.attributes.position;
+ for(let i=0;i<position.count;i++){
+   const v=ParticleMotion.particleVelocity(mode,animationTime,i);
+   let x=position.getX(i)+v.x*dt;
+   let y=position.getY(i)+v.y*dt;
+   let z=position.getZ(i)+v.z*dt;
+   if(y<.2)y=4.3;if(y>4.4)y=.3;
+   if(x>13)x=-13;if(x< -13)x=13;
+   if(z>11)z=-11;if(z< -11)z=11;
+   position.setXYZ(i,x,y,z);
+ }
+ position.needsUpdate=true;
+}
+// Three.js TSL shader code is compiled to WGSL on native WebGPU.
+const particleCount=4096;
+const particleOpacity=uniform(.78);
+const particleSize=uniform(.085);
+const particleTint=uniform(new THREE.Color('#ffe4a1'));
+const particleFall=uniform(0);
+const particleSpeed=uniform(.9);
+const particleTime=uniform(0);
+const particleWind=uniform(.015);
+const particleSway=uniform(.16);
+const particleSwayRate=uniform(1.28);
+const particleVerticalSway=uniform(.23);
+const particleVerticalRate=uniform(1.8);
+const particleOrigin=uniform(new THREE.Vector3(0,0,3.5));
+const particleAnchorShift=uniform(new THREE.Vector3(0,0,0));
+const particleAnchor=new THREE.Vector3(0,0,3.5);
+const pendingParticleShift=new THREE.Vector3();
+// Emit near the current region, but never translate existing world-space particles
+// with every movement of the player. Shift local coordinates on recenter to
+// preserve world-space positions before wrapping the particles that leave the box.
+function recenterParticleField(x,y,z){
+  const nextY=Math.max(0,y);
+  const dx=x-particleAnchor.x,dz=z-particleAnchor.z,dy=nextY-particleAnchor.y;
+  if(Math.abs(dx)<8&&Math.abs(dz)<8&&Math.abs(dy)<3)return;
+  particleAnchor.set(x,nextY,z);
+  particleOrigin.value.copy(particleAnchor);
+  // The CPU geometry and WebGPU compute local coordinates must subtract the
+  // exact same delta so existing particles stay at their original world spots.
+  const attr=fallbackFlies.geometry.attributes.position;
+  for(let i=0;i<attr.count;i++){
+    const newX=attr.getX(i)-dx,newY=attr.getY(i)-dy,newZ=attr.getZ(i)-dz;
+    attr.setXYZ(i,((newX+13)%26+26)%26-13,((newY-.2)%4.2+4.2)%4.2+.2,((newZ+11)%22+22)%22-11);
+  }
+  attr.needsUpdate=true;
+  fallbackFlies.position.copy(particleAnchor);
+  pendingParticleShift.x+=dx;pendingParticleShift.y+=dy;pendingParticleShift.z+=dz;
+  particleAnchorShift.value.copy(pendingParticleShift);
+}
+let particleBaseOpacity=.78;
+let particleStep=null,gpuParticles=null,gpuParticleMaterial=null;
+if(nativeWebGPU){
+  try{
+    const positions=instancedArray(particleCount,'vec3');
+    const velocities=instancedArray(particleCount,'vec3');
+    const init=Fn(()=>{
+      const index=instanceIndex;
+      const p=positions.element(index),v=velocities.element(index);
+      p.x=hash(index.mul(17)).mul(28).sub(14);
+      p.y=hash(index.mul(37)).mul(3.5).add(.5);
+      p.z=hash(index.mul(79)).mul(22).sub(11);
+      v.x=hash(index.mul(109)).sub(.5).mul(.023);
+      v.y=hash(index.mul(241)).mul(.014).add(.004);
+      v.z=hash(index.mul(311)).sub(.5).mul(.023);
+    })().compute(particleCount);
+    particleStep=Fn(()=>{
+      const p=positions.element(instanceIndex),v=velocities.element(instanceIndex);
+      p.x.subAssign(particleAnchorShift.x);
+      p.y.subAssign(particleAnchorShift.y);
+      p.z.subAssign(particleAnchorShift.z);
+      p.addAssign(v.mul(particleSpeed));
+      p.x.addAssign(sin(particleTime.mul(particleSwayRate).add(instanceIndex.mul(.783))).mul(particleSway).add(particleWind));
+      p.z.addAssign(cos(particleTime.mul(particleSwayRate).mul(.83).add(instanceIndex.mul(1.11))).mul(particleSway).mul(.58));
+      p.y.addAssign(particleFall.add(sin(particleTime.mul(particleVerticalRate).add(instanceIndex.mul(2.31))).mul(particleVerticalSway)));
+      If(p.y.greaterThan(4.4),()=>{p.y.assign(.4);});
+      If(p.y.lessThan(.15),()=>{p.y.assign(4.2);});
+      If(p.x.greaterThan(14),()=>{p.x.assign(-14);});
+      If(p.x.lessThan(-14),()=>{p.x.assign(14);});
+      If(p.z.greaterThan(11),()=>{p.z.assign(-11);});
+      If(p.z.lessThan(-11),()=>{p.z.assign(11);});
+    })().compute(particleCount);
+    gpuParticleMaterial=new THREE.SpriteNodeMaterial();
+    gpuParticleMaterial.colorNode=particleTint;
+    gpuParticleMaterial.positionNode=positions.toAttribute().add(particleOrigin);
+    gpuParticleMaterial.scaleNode=particleSize;
+    gpuParticleMaterial.opacityNode=texture(particleMasks.firefly,uv()).a.mul(particleOpacity);
+    gpuParticleMaterial.transparent=true;
+    gpuParticleMaterial.depthWrite=false;
+    gpuParticleMaterial.blending=THREE.AdditiveBlending;
+    gpuParticles=new THREE.Sprite(gpuParticleMaterial);
+    gpuParticles.count=particleCount;
+    gpuParticles.frustumCulled=false;
+    scene.add(gpuParticles);
+    await renderer.computeAsync(init);
+    fallbackFlies.visible=false;
+  }catch(err){
+    console.warn('GPU compute particle setup failed, using fallback',err);
+    if(gpuParticles){scene.remove(gpuParticles);gpuParticles=null;}
+    gpuParticleMaterial=null;particleStep=null;
+    $('gpu-info').textContent='WebGPU / Compute初期化失敗（代替粒子）';
+  }
+}
+// Load the clock before seasonal particles or daylight touch the season.
+let storedWorldClock=null;
+try{
+  const newSave=localStorage.getItem(WorldTime.WORLD_CLOCK_STORAGE_KEY);
+  if(newSave){storedWorldClock=JSON.parse(newSave);}
+  else {
+    const prevSave=localStorage.getItem(WorldTime.WORLD_CLOCK_PREVIOUS_STORAGE_KEY);
+    if(prevSave)storedWorldClock=WorldTime.migratePreviousSeasonClock(JSON.parse(prevSave));
+    else {
+      const legacySave=localStorage.getItem(WorldTime.WORLD_CLOCK_LEGACY_STORAGE_KEY);
+      if(legacySave)storedWorldClock=WorldTime.migratePreviousSeasonClock(WorldTime.migrateLegacyWorldClock(JSON.parse(legacySave)));
+    }
+  }
+}catch{}
+const worldClock=WorldTime.createWorldClock(storedWorldClock&&typeof storedWorldClock==='object'?storedWorldClock:{});
+function effectiveParticleMode(){
+ const chosen=$('particle-mode').value;
+ if(chosen!=='auto')return chosen;
+ return {spring:'petal',summer:'firefly',autumn:'leaf',winter:'snow'}[Seasons.seasonAtDay(worldClock.day,worldClock.seasonDays).key];
+}
+function changeParticleType(){
+ const mode=effectiveParticleMode();
+ const labels={leaf:'落ち葉（葉型）',firefly:'蛍（光の粒）',snow:'雪（結晶型）',petal:'花びら（花びら型）',off:'OFF'};
+ $('particle-out').textContent=$('particle-mode').value==='auto'?'自動 · '+labels[mode]:labels[mode];
+ const density=Number($('particle-density').value)/100;
+ particleBaseOpacity=mode==='off'?0:mode==='firefly'?.60:.87;
+ const motion=ParticleMotion.PARTICLE_MOTION_PRESETS[mode]||ParticleMotion.PARTICLE_MOTION_PRESETS.firefly;
+ // GPU compute is normally called once per frame; use equivalent frame-scale
+ // coefficients to approximate the same distinctive seasonal motion profiles.
+ const frameScale=1/60;
+ particleFall.value=motion.fall*frameScale;
+ particleWind.value=motion.drift*frameScale;
+ particleSway.value=motion.sway*frameScale;
+ particleSwayRate.value=motion.swayRate;
+ particleVerticalSway.value=motion.bob*frameScale;
+ particleVerticalRate.value=motion.bobRate;
+ particleTint.value.set(mode==='snow'?'#eaf7ff':mode==='petal'?'#f5a9c6':mode==='leaf'?'#d18a42':'#ffe4a1');
+ particleSize.value=mode==='snow'?.28:mode==='petal'?.25:mode==='leaf'?.29:.19;
+ particleSpeed.value=mode==='snow'?2.4:mode==='petal'?.85:mode==='leaf'?1.2:.9;
+ const firefly=mode==='firefly';
+ const tint=mode==='snow'?'#eaf7ff':mode==='petal'?'#f5a9c6':mode==='leaf'?'#d18a42':'#ffe4a1';
+ const factor=firefly?.60:1; // skyClock() applies actual daylight after initialization
+ particleOpacity.value=particleBaseOpacity*factor;
+ if(gpuParticleMaterial){
+   gpuParticleMaterial.opacityNode=texture(particleMasks[mode]||particleMasks.firefly,uv()).a.mul(particleOpacity);
+   gpuParticleMaterial.blending=firefly?THREE.AdditiveBlending:THREE.NormalBlending;
+   gpuParticleMaterial.needsUpdate=true;
+ }
+ if(gpuParticles){gpuParticles.count=Math.round(particleCount*density);gpuParticles.visible=Boolean(particleStep)&&mode!=='off'&&density>0;}
+ fallbackFlies.geometry.setDrawRange(0,Math.round(flyPositions.length/3*density));
+ fallbackFlies.visible=(!gpuParticles||!particleStep)&&mode!=='off'&&density>0;
+ fallbackFlies.material.size=particleSize.value;
+ fallbackFlies.material.map=particleMasks[mode]||particleMasks.firefly;
+ fallbackFlies.material.blending=firefly?THREE.AdditiveBlending:THREE.NormalBlending;
+ fallbackFlies.material.color.set(tint);
+ fallbackFlies.material.opacity=particleOpacity.value;
+ fallbackFlies.material.needsUpdate=true;
+}
+$('particle-mode').addEventListener('change',changeParticleType);
+$('particle-density').addEventListener('input',e=>{$('particle-density-out').textContent=e.target.value+'%';changeParticleType();});
+changeParticleType();
+
+let appliedSeasonKey='';
+function applySeasonVisuals(force=false){
+  const entry=Seasons.seasonAtDay(worldClock.day,worldClock.seasonDays);
+  if(!force&&entry.key===appliedSeasonKey)return entry;
+  appliedSeasonKey=entry.key;
+  grass.color.set(entry.palette.grass);
+  areaGrassMaterials.forEach(m=>m.color.set(entry.palette.meadow));
+  areaLeafMaterials.forEach(m=>m.color.set(entry.palette.leaf));
+  farMeadow.color.set(entry.palette.meadow);
+  leaf.color.set(entry.palette.leaf);
+  leafAlt1.color.set(entry.palette.leaf2);
+  leafAlt2.color.set(entry.palette.leaf);
+  springBlossoms.forEach(mesh=>mesh.visible=entry.key==='spring');
+  if($('particle-mode').value==='auto')changeParticleType();
+  return entry;
+}
+let cinematicDaylight=1;
+const sunOrbitOffset=new THREE.Vector3(13,21,10);
+function skyClock(v){
+ const season=Seasons.seasonAtDay(worldClock.day,worldClock.seasonDays);
+ const {dayFactor,twilight,sunrise,sunset}=Seasons.sunlightAtHour(v,season.key);
+ cinematicDaylight=dayFactor;
+ const bg=new THREE.Color('#111b35').lerp(new THREE.Color(season.palette.tint),dayFactor).lerp(new THREE.Color('#d1957b'),twilight*.40);
+ scene.background=bg;scene.fog.color.copy(bg);
+ ambient.intensity=.34+dayFactor*.96;
+ sun.intensity=.18+dayFactor*1.98;
+ const az=(v-sunrise)/Math.max(1,sunset-sunrise)*Math.PI;
+ sunOrbitOffset.set(Math.cos(az)*19,5+Math.max(0,Math.sin(az))*22,8);
+ sun.color.set('#fff2d5').lerp(new THREE.Color('#ef9f80'),twilight*.44);
+ renderer.toneMappingExposure=.88+dayFactor*.23;
+ // Tint the unlit sprite gently to follow day/night without changing the source pixels.
+ heroMaterial.color.set('#a3b8dd').lerp(new THREE.Color('#ffffff'),dayFactor).lerp(new THREE.Color('#ffdfc7'),twilight*.10);
+ lamps.forEach(l=>l.intensity=2.5-dayFactor*2.35);
+ windows.forEach(w=>w.material.emissiveIntensity=2.1-dayFactor*1.75);
+ // Separate blue fill and amber rim make warm and cold planes legible.
+ fillLight.intensity=.32+dayFactor*.40;
+ rimLight.intensity=.28+twilight*.48+dayFactor*.16;
+ poolMaterial.opacity=.95-dayFactor*.60;
+ // Firefly glow increases after sunset; snow / petals are visible in daylight too.
+ const factor=effectiveParticleMode()==='firefly'?.2+(1-dayFactor)*.8:1;
+ particleOpacity.value=particleBaseOpacity*factor;
+ fallbackFlies.material.opacity=particleOpacity.value;
+}
+let follow=true,zoom=25,elevation=Math.PI/5;
+let mapOverview=false,previousView={zoom:25,follow:true};
+function applyOverview(){
+  $('map-overview').setAttribute('aria-pressed',String(mapOverview));
+  $('map-overview').textContent=mapOverview?'↩ 通常の視点へ戻す':'⌗ 村全体を見渡す';
+  $('zoom').value=String(Math.round(zoom));$('zoom-out').textContent=String(Math.round(zoom));
+  $('follow').checked=follow;
+}
+$('map-overview').addEventListener('click',()=>{
+  if(!mapOverview){previousView={zoom,follow};zoom=70;follow=false;mapOverview=true;}
+  else{zoom=previousView.zoom;follow=previousView.follow;mapOverview=false;}
+  applyOverview();
+});
+let indoorActiveForResize=false;
+let target=new THREE.Vector3(0,0,0),cameraTarget=new THREE.Vector3(0,0,0);
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/Math.max(h,1);camera.updateProjectionMatrix();renderer.setSize(w,h);if(indoorActiveForResize) refitIndoorCamera();}
+window.addEventListener('resize',resize);resize();
+const inputs=new Set();
+window.addEventListener('keydown',e=>{if(e.target.closest?.('input,select,textarea,button'))return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','w','a','s','d','W','A','S','D','j','J','k','K'].includes(e.key))e.preventDefault();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))setGameplayPreview();if(!e.repeat && (e.key.toLowerCase()==='j'))beginHeroAction('jump');if(!e.repeat && (e.key===' ' || e.key.toLowerCase()==='k'))beginHeroAction('attack');inputs.add(e.key.toLowerCase());});
+window.addEventListener('keyup',e=>inputs.delete(e.key.toLowerCase()));
+window.addEventListener('blur',()=>inputs.clear());
+let mobileRun=false;
+for(const [id,action] of [['jump-btn','jump'],['attack-btn','attack']]) $(id).addEventListener('pointerdown',e=>{e.preventDefault();beginHeroAction(action);$(id).classList.add('pressed');});
+for(const id of ['jump-btn','attack-btn'])for(const event of ['pointerup','pointercancel','pointerleave'])$(id).addEventListener(event,()=>$(id).classList.remove('pressed'));
+$('run-btn').addEventListener('pointerdown',e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);mobileRun=true;setGameplayPreview();e.currentTarget.classList.add('pressed');});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])$('run-btn').addEventListener(event,e=>{mobileRun=false;e.currentTarget.classList.remove('pressed');});
+for(const btn of document.querySelectorAll('.pbtn')){
+ const key=btn.dataset.key.toLowerCase();
+ btn.addEventListener('pointerdown',e=>{e.preventDefault();btn.setPointerCapture(e.pointerId);setGameplayPreview();inputs.add(key);btn.classList.add('pressed');});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])btn.addEventListener(event,()=>{inputs.delete(key);btn.classList.remove('pressed');});
+}
+let dragging=false,oldX=0,oldY=0;
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;oldX=e.clientX;oldY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return;azimuth-=(e.clientX-oldX)*.004;elevation=THREE.MathUtils.clamp(elevation+(e.clientY-oldY)*.003,.38,1.37);oldX=e.clientX;oldY=e.clientY;if(indoorActiveForResize)refitIndoorCamera();$('angle').value=Math.round(elevation*180/Math.PI);$('angle-out').textContent=Math.round(elevation*180/Math.PI)+'°';});
+renderer.domElement.addEventListener('pointerup',()=>dragging=false);renderer.domElement.addEventListener('pointercancel',()=>dragging=false);
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();zoom=THREE.MathUtils.clamp(zoom+Math.sign(e.deltaY)*1.9,8,82);$('zoom').value=Math.round(zoom);$('zoom-out').textContent=Math.round(zoom);},{passive:false});
+// Clock UI: manual scrubbing changes the game clock, not an unrelated lighting slider.
+$('time').addEventListener('input',e=>{WorldTime.seekWorldClock(worldClock,Number(e.target.value));renderWorldClock(true);saveWorldClock();});
+$('time-rate').addEventListener('change',e=>{worldClock.minutesPerRealSecond=WorldTime.createWorldClock({minutesPerRealSecond:Number(e.target.value)}).minutesPerRealSecond;renderWorldClock(false);saveWorldClock();});
+$('time-pause').addEventListener('click',()=>{worldClock.paused=!worldClock.paused;renderWorldClock(false);saveWorldClock();});
+$('time-next-morning').addEventListener('click',()=>{worldClock.day=Math.min(999999,worldClock.day+1);WorldTime.seekWorldClock(worldClock,360);renderWorldClock(true);saveWorldClock();});
+$('zoom').addEventListener('input',e=>{zoom=Number(e.target.value);$('zoom-out').textContent=zoom;});
+$('angle').addEventListener('input',e=>{const val=Number(e.target.value);elevation=val*Math.PI/180;if(indoorActiveForResize)refitIndoorCamera();$('angle-out').textContent=val+'°';});
+$('bloom').addEventListener('change',rebuildEffects);
+$('dof').addEventListener('change',rebuildEffects);
+for(const id of ['bloom-strength','dof-strength','fog-density','vignette'])
+  $(id).addEventListener('input',updateLookValues);
+$('pixels').addEventListener('change',e=>{
+  pixelDisplay=e.target.checked;
+  refreshSpriteInfo();
+  lastDrawKey=''; // Force a fresh draw next frame without resizing GPU texture.
+  heroTexture.needsUpdate=true;
+});
+$('follow').addEventListener('change',e=>follow=e.target.checked);
+$('reset').addEventListener('click',()=>{if(indoor.active)leaveHouse();changeArea(0,{x:0,z:3.5});engine.reset(0,3.5);cameraTarget.set(0,0,3.5);oneShot=null;heroAnimClock=0;setGameplayPreview();});
+// A single world-wide clock. Saving is throttled so the render loop never writes
+// localStorage per frame; malformed stored data falls back to Day 1 / 17:00.
+let lastClockRenderMinute=-1,lastClockRenderDay=-1,lastClockSeasonLength=worldClock.seasonDays,lastClockSaveTime=0;
+const phaseNames={dawn:'明け方',day:'昼',dusk:'夕方',night:'夜'};
+function saveWorldClock(){try{localStorage.setItem(WorldTime.WORLD_CLOCK_STORAGE_KEY,JSON.stringify(WorldTime.worldClockSnapshot(worldClock)));}catch{}}
+function renderWorldClock(forceLighting=false){
+  const minute=Math.floor(worldClock.minuteOfDay);
+  const changed=minute!==lastClockRenderMinute||worldClock.day!==lastClockRenderDay||worldClock.seasonDays!==lastClockSeasonLength;
+  const season=Seasons.seasonAtDay(worldClock.day,worldClock.seasonDays);
+  $('world-clock-label').textContent=WorldTime.worldClockLabel(worldClock);
+  $('world-clock-phase').textContent=phaseNames[WorldTime.worldClockPhase(worldClock)]+(worldClock.paused?' · 停止中':' · 進行中');
+  $('world-season-label').textContent=`${season.label} · ${season.year}年目 ${season.dayInSeason}/${season.daysPerSeason}日`;
+  $('season-status').textContent=`${season.label} · ${season.year}年目 ${season.dayInSeason}日目`;
+  if(document.activeElement!==$('season-length'))$('season-length').value=String(worldClock.seasonDays);
+  $('time-out').textContent=WorldTime.worldClockLabel(worldClock);
+  $('time-state').textContent=worldClock.paused?'時計は一時停止中です。':'現実の1秒＝ゲーム内'+worldClock.minutesPerRealSecond+'分。町と室内で共通の時計です。';
+  $('time').value=String(minute);
+  $('time-rate').value=String(worldClock.minutesPerRealSecond);
+  const secondsPerGameDay=1440/worldClock.minutesPerRealSecond;
+  const dayDurationLabel=secondsPerGameDay<120
+    ?Math.round(secondsPerGameDay)+'秒/日'
+    :(secondsPerGameDay/60).toFixed(Number.isInteger(secondsPerGameDay/60)?0:1)+'分/日';
+  $('time-rate-out').textContent=worldClock.minutesPerRealSecond+'倍 · '+dayDurationLabel;
+  $('time-pause').textContent=worldClock.paused?'▶ 時間を進める':'⏸ 時間を止める';
+  if(changed||forceLighting){
+    applySeasonVisuals();
+    skyClock(worldClock.minuteOfDay/60);
+    if(indoorActiveForResize){scene.background.set('#343147');scene.fog.color.set('#343147');applyIndoorLighting();}
+    lastClockRenderMinute=minute;lastClockRenderDay=worldClock.day;lastClockSeasonLength=worldClock.seasonDays;
+    // Future extension: NPC shops/quests can subscribe to minute/day/phase changes here.
+    window.dispatchEvent(new CustomEvent('xdimension:timechange',{detail:{...WorldTime.worldClockSnapshot(worldClock),phase:WorldTime.worldClockPhase(worldClock)}}));
+  }
+}
+$('season-length').addEventListener('change',e=>{worldClock.seasonDays=WorldTime.createWorldClock({seasonDays:Number(e.target.value)}).seasonDays;e.target.value=String(worldClock.seasonDays);renderWorldClock(true);saveWorldClock();});
+$('season-next').addEventListener('click',()=>{
+ const s=Seasons.seasonAtDay(worldClock.day,worldClock.seasonDays);
+ worldClock.day=Math.min(999999,worldClock.day+(worldClock.seasonDays-s.dayInSeason+1));
+ renderWorldClock(true);saveWorldClock();
+});
+$('season-reset').addEventListener('click',()=>{worldClock.day=1;WorldTime.seekWorldClock(worldClock,1020);renderWorldClock(true);saveWorldClock();});
+renderWorldClock(true);
+window.addEventListener('pagehide',saveWorldClock);
+
+// v0.0.7: sample time-driven townspeople. Sprites are procedurally generated,
+// and schedules are deterministic; the map collisions/player movement remain WASM.
+function createTownspersonTexture(top,bottom,skin){
+ const c=document.createElement('canvas');c.width=32;c.height=48;
+ const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+ ctx.fillStyle='#25313b';ctx.fillRect(11,5,11,10); // hair
+ ctx.fillStyle=skin;ctx.fillRect(12,9,9,9);
+ ctx.fillStyle=top;ctx.fillRect(9,18,15,14);
+ ctx.fillStyle=bottom;ctx.fillRect(10,32,6,10);ctx.fillRect(18,32,6,10);
+ ctx.fillStyle='#293038';ctx.fillRect(10,42,7,3);ctx.fillRect(18,42,7,3);
+ ctx.fillStyle='#261c24';ctx.fillRect(14,12,2,2);ctx.fillRect(20,12,2,2);
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+ tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestFilter;
+ return tex;
+}
+const npcData=[
+ {name:'村の住民A',home:{x:-3.0,z:13.5},work:{x:-2.1,z:17.2},colors:['#b8764c','#475d73']},
+ {name:'村の住民B',home:{x:3.0,z:13.5},work:{x:2.1,z:17.4},colors:['#5c8f81','#665b91']},
+ {name:'青葉の住民A',home:{x:-4.3,z:72.5},work:{x:-2.2,z:81.0},colors:['#9c6c9b','#65513b']},
+ {name:'青葉の住民B',home:{x:4.3,z:72.5},work:{x:2.1,z:82.0},colors:['#a08948','#49637a']}
+];
+const npcActors=npcData.map((spec,i)=>{
+ const tex=createTownspersonTexture(spec.colors[0],spec.colors[1],i%2?'#d3a77a':'#f0c999');
+ const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,alphaTest:.1,depthWrite:false,toneMapped:false}));
+ sprite.center.set(.5,.045);sprite.scale.set(1.05,1.57,1);
+ scene.add(sprite);
+ return {sprite,...spec};
+});
+function updateTownNpcSchedules(){
+ const minute=worldClock.minuteOfDay;
+ npcActors.forEach((npc,i)=>{
+   const p=Seasons.npcPosition(npc.home,npc.work,minute,i*.9);
+   npc.sprite.visible=p.visible&&!indoor.active&&currentMapId===0;
+   npc.sprite.position.set(p.x,.12,p.z);
+ });
+}
+// v0.0.3 — one room template reused for the 12 houses. The exterior
+// simulation and colliders remain in C/Rust-WASM; room-local movement is JS.
+const interiorOrigin=new THREE.Vector3(190,0,190);
+const roomRoot=new THREE.Group();roomRoot.position.copy(interiorOrigin);roomRoot.visible=false;
+const outdoorObjects=scene.children.filter(obj=>obj!==hero&&obj!==heroShadow&&obj!==footGuide&&!obj.isLight);
+const outdoorVisibility=new Map(outdoorObjects.map(obj=>[obj,obj.visible]));
+scene.add(roomRoot);
+// v0.0.13: Each area has its own 3D root; only the selected root is rendered.
+// Existing town geometry is intentionally left untouched as area 0.
+let currentMapId=0;
+let mapSwitching=false;
+const areaRoots={};
+const areaMat=(color,roughness=.93)=>new THREE.MeshStandardMaterial({color,roughness});
+const areaWood=areaMat('#725436'),areaStone=areaMat('#8c9187'),areaRoad=areaMat('#b6a98a');
+function newArea(id){const root=new THREE.Group();root.name=`World area ${id}`;root.visible=false;scene.add(root);areaRoots[id]=root;return root;}
+function areaBox(root,x,y,z,w,h,d,material){
+ const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+ mesh.position.set(x,y,z);mesh.castShadow=h>.4;mesh.receiveShadow=true;root.add(mesh);return mesh;
+}
+function areaRock(root,x,z,r,id){
+ const y=AreaMaps.areaTerrainHeight(id,x,z);
+ const mesh=new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),areaStone);
+ mesh.position.set(x,y+r*.41,z);mesh.scale.y=.65;mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);
+}
+function areaTree(root,x,z,r,id){
+ const y=AreaMaps.areaTerrainHeight(id,x,z);
+ areaBox(root,x,y+.80,z,.28,1.6,.28,areaWood);
+ const leaves=areaMat('#467461');areaLeafMaterials.push(leaves);
+ for(const [dx,dy,dz,rr] of [[0,1.78,0,1],[.38,1.50,.2,.61],[-.4,1.6,-.2,.57]]){
+  const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(r*rr*2.15,1),leaves);
+  mesh.position.set(x+dx,y+dy,z+dz);mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);
+ }
+}
+function meshAreaTerrain(root,def){
+ const {minX,maxX,minZ,maxZ}=def.bounds;
+ const geom=new THREE.PlaneGeometry(maxX-minX,maxZ-minZ,108,88);
+ geom.rotateX(-Math.PI/2);
+ const p=geom.attributes.position;
+ for(let i=0;i<p.count;i++){
+   const x=p.getX(i)+(minX+maxX)/2;
+   const z=p.getZ(i)+(minZ+maxZ)/2;
+   p.setXYZ(i,x,AreaMaps.areaTerrainHeight(def.id,x,z),z);
+ }
+ p.needsUpdate=true;geom.computeVertexNormals();
+ const m=areaMat(def.id===1?'#5f8068':'#719365');areaGrassMaterials.push(m);
+ const terrain=new THREE.Mesh(geom,m);terrain.receiveShadow=true;root.add(terrain);
+}
+// Scenic hills rise OUTSIDE the physical playable bounds on the sides of towns.
+// The inner edge is at ground level, so they do not obscure walkable streets.
+function sideHighland(root,side,edgeX,zMin,zMax,height=8){
+ const nx=28,nz=72;
+ const geom=new THREE.PlaneGeometry(1,1,nx,nz);
+ geom.rotateX(-Math.PI/2);
+ const pos=geom.attributes.position;
+ for(let i=0;i<pos.count;i++){
+   const gx=(pos.getX(i)+.5),gz=(pos.getZ(i)+.5);
+   const x=side*(edgeX+gx*23),z=zMin+gz*(zMax-zMin);
+   const peaks=.78+.22*Math.cos(z*.13+side*1.3)+.12*Math.cos(z*.31+side);
+   // Join the sculpted corner ground in MAP 03 without exposing seams.
+   const rimBase=edgeX>=26 ? AreaMaps.areaTerrainHeight(2,side*edgeX,Math.max(-22,Math.min(22,z))) : 0;
+   pos.setXYZ(i,x,rimBase+height*gx*gx*peaks,z);
+ }
+ pos.needsUpdate=true;geom.computeVertexNormals();
+ const m=areaMat('#658267');areaGrassMaterials.push(m);
+ const mesh=new THREE.Mesh(geom,m);
+ mesh.receiveShadow=true;root.add(mesh);
+ // Low-poly rock escarpments: silhouettes and contact shadows make depth readable.
+ const darkRock=areaMat('#687368');
+ for(let k=0;k<18;k++){
+   const z=zMin+(k+.5)/18*(zMax-zMin);
+   const t=.49+Math.sin(k*4.3+side)*.07;
+   const x=side*(edgeX+t*23);
+   const y=height*t*t*(.78+.22*Math.cos(z*.13+side*1.3)+.12*Math.cos(z*.31+side));
+   const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.7+(k%4)*.26,0),darkRock);
+   rock.position.set(x,y+.1,z);rock.scale.set(1.8,1.15,1.0);rock.castShadow=true;rock.receiveShadow=true;root.add(rock);
+ }
+}
+const originalHighlands=newArea(0);
+for(const side of [-1,1])sideHighland(originalHighlands,side,24.4,-22,104,7.8);
+// MAP 02: bridge collision matches the safe inner width between BOTH rails;
+// player radius is deducted in the JS/C/Rust collision implementations.
+// MAP 02: sculpted highland terrain, wooded slopes, ravine and a walkable bridge.
+const mountains=newArea(1),mountainDef=areaData.maps[1];meshAreaTerrain(mountains,mountainDef);
+for(const [gx,gz] of [[-25.2,-7.1],[-25.2,-.9],[25.2,3.6],[25.2,10.6]]){
+ areaBox(mountains,gx,1.45,gz,.44,2.9,.44,areaStone);
+ areaBox(mountains,gx,2.95,gz,.64,.22,.64,areaWood);
+}
+for(const tr of mountainDef.trees)areaTree(mountains,tr.x,tr.z,tr.radius,1);
+for(const rock of mountainDef.rocks)areaRock(mountains,rock.x,rock.z,rock.radius,1);
+const riverMat=new THREE.MeshStandardMaterial({color:'#3988a7',roughness:.30,metalness:.10,transparent:true,opacity:.87});
+areaBox(mountains,0,-.35,0,4.3,.20,44,riverMat);
+// Exposed canyon walls make the river read as a valley rather than a blue tile.
+const canyonWall=areaMat('#68746a');
+for(const side of [-1,1])for(const [a,b] of [[-22,-.25],[4.25,22]]){
+  areaBox(mountains,side*2.13,-.52,(a+b)*.5,.38,1.30,b-a,canyonWall);
+}
+for(let x=-25;x<=25;x+=.65){
+  // Do not paint stone road over the wooden bridge deck itself.
+  if(Math.abs(x)<2.45)continue;
+  const z=AreaMaps.mountainRoadZ(x);
+  const y=AreaMaps.areaTerrainHeight(1,x,z);
+  areaBox(mountains,x,y+.025,z,.68,.045,2.65,areaRoad);
+}
+// The top of the timber deck is Y=.72, matching get_ground_y_at(0,2).
+areaBox(mountains,0,.63,2,4.9,.18,4.10,areaWood);
+for(const side of [-1,1]){
+  areaBox(mountains,0,1.28,2+side*2.05,5.1,.16,.16,areaWood);
+  for(const bx of [-2.2,-1.1,0,1.1,2.2])areaBox(mountains,bx,1.00,2+side*2.05,.13,.57,.16,areaWood);
+}
+for(const side of [-1,1])for(let x=-22;x<=22;x+=3.2){
+ const z=AreaMaps.mountainRoadZ(x)+side*4.0,y=AreaMaps.areaTerrainHeight(1,x,z);
+ areaRock(mountains,x,z,.38,1);
+}
+// MAP 03: an independent alpine settlement. Houses use the original house
+// construction routine, but are reparented into this map's scene root.
+const hilltown=newArea(2),townDef=areaData.maps[2];meshAreaTerrain(hilltown,townDef);
+for(const side of [-1,1])sideHighland(hilltown,side,26,-28,28,10.5);
+for(const z of [3.9,8.1])areaBox(hilltown,-24.3,1.20,z,.5,2.4,.5,areaStone);
+areaBox(hilltown,0,.037,6,49,.075,3.5,areaRoad);
+areaBox(hilltown,0,.04,-1,4.5,.075,39,areaRoad);
+for(const z of [-12,0,12])areaBox(hilltown,0,.05,z,39,.06,2.55,areaRoad);
+for(const [idx,h] of townDef.houses.entries()){
+ const oldCount=scene.children.length,occlusionStart=occlusionSets.length;
+ house(h.x,h.z,18+idx);
+ for(const child of scene.children.slice(oldCount))hilltown.add(child);
+ // The occlusion raycaster is initialized before this area; register new roofs.
+ for(const group of occlusionSets.slice(occlusionStart))for(const mesh of group.meshes){occlusionOwner.set(mesh,group);occluderMeshes.push(mesh);}
+}
+for(const tr of townDef.trees)areaTree(hilltown,tr.x,tr.z,tr.radius,2);
+// New biome landmark: central town well and a small raised lookout on the east.
+areaBox(hilltown,1,.22,19,3,.45,3,areaStone);
+areaBox(hilltown,1,.60,19,2.25,.33,2.25,riverMat);
+areaBox(hilltown,19,.30,-17,5,.6,4.4,areaStone);
+// v0.0.13 / puzzle demo: moveable wooden crates, pressure switches and an altar.
+// The map is optional: the original forest path remains open along X≈0.
+const tutorialPuzzle=puzzleData.puzzles[0];
+const puzzleWorldRoot=new THREE.Group();puzzleWorldRoot.name='Forest switch puzzle';originalHighlands.add(puzzleWorldRoot);
+const puzzleCrateActors=[];
+const puzzleSwitchActors=[];
+const puzzleBoxMat=areaMat('#ba8a52'),puzzleMetalMat=areaMat('#443f3d');
+for(const [i,t] of tutorialPuzzle.targets.entries()){
+ const base=new THREE.Mesh(new THREE.CylinderGeometry(.95,1.04,.15,8),areaMat('#555c58'));
+ base.position.set(t.x,.06,t.z);base.receiveShadow=true;puzzleWorldRoot.add(base);
+ const ringMat=new THREE.MeshStandardMaterial({color:'#dcb878',emissive:'#764b18',emissiveIntensity:.7,metalness:.35,roughness:.35});
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.87,.10,8,48),ringMat);
+ ring.rotation.x=-Math.PI/2;ring.position.set(t.x,.155,t.z);puzzleWorldRoot.add(ring);
+ puzzleSwitchActors.push({ring,material:ringMat});
+}
+for(const [i,loc] of tutorialPuzzle.crates.entries()){
+ const root=new THREE.Group();root.position.set(loc.x,0,loc.z);
+ const box=new THREE.Mesh(new THREE.BoxGeometry(1.15,1.12,1.15),puzzleBoxMat);
+ box.position.y=.66;box.castShadow=true;box.receiveShadow=true;root.add(box);
+ // Dark iron corner guards and simple upper-cross brace are readable from above.
+ for(const edgeX of [-.5,.5])for(const edgeZ of [-.5,.5]){
+  const guard=new THREE.Mesh(new THREE.BoxGeometry(.095,1.16,.095),puzzleMetalMat);
+  guard.position.set(edgeX,.68,edgeZ);root.add(guard);
+ }
+ for(const a of [-.42,.42]){
+  const brace=new THREE.Mesh(new THREE.BoxGeometry(1.08,.065,.075),puzzleMetalMat);
+  brace.position.set(0,1.247,a);root.add(brace);
+ }
+ puzzleWorldRoot.add(root);puzzleCrateActors.push(root);
+}
+// A nonblocking shrine lights up when both pressure plates are occupied.
+const shrineRoot=new THREE.Group();shrineRoot.position.set(7.85,0,36);puzzleWorldRoot.add(shrineRoot);
+const shrineBase=new THREE.Mesh(new THREE.CylinderGeometry(.92,1.18,.53,8),areaStone);
+ shrineBase.position.y=.25;shrineBase.castShadow=true;shrineRoot.add(shrineBase);
+const shrineCrystalMat=new THREE.MeshStandardMaterial({color:'#735b4a',emissive:'#29251d',emissiveIntensity:.4,roughness:.33,metalness:.3});
+const shrineCrystal=new THREE.Mesh(new THREE.OctahedronGeometry(.71,0),shrineCrystalMat);
+shrineCrystal.position.y=1.29;shrineCrystal.castShadow=true;shrineRoot.add(shrineCrystal);
+// Stone sign by the main north-south forest path, facing east toward the puzzle.
+areaBox(puzzleWorldRoot,2.7,.57,27,.18,1.10,.18,areaWood);
+const puzzleSign=areaBox(puzzleWorldRoot,2.7,1.25,27,1.6,.58,.13,areaWood);
+puzzleSign.castShadow=true;
+let puzzleCompleted=false,puzzleMessage='',puzzleMessageUntil=0;
+function puzzleBoxPositions(){return tutorialPuzzle.crates.map((_,i)=>({x:engine.puzzle_x(i),z:engine.puzzle_z(i)}));}
+function refreshPuzzleVisuals(snap=false){
+ const positions=puzzleBoxPositions();
+ positions.forEach((pos,i)=>{
+  const actor=puzzleCrateActors[i];
+  actor.userData.goalX=pos.x;actor.userData.goalZ=pos.z;
+  if(snap)actor.position.set(pos.x,0,pos.z);
+ });
+ const state=PuzzleLogic.puzzleProgress(positions,tutorialPuzzle.targets);
+ puzzleCompleted=state.solved;
+ for(const [i,t] of tutorialPuzzle.targets.entries()){
+  const on=positions.some(p=>Math.hypot(p.x-t.x,p.z-t.z)<.28);
+  puzzleSwitchActors[i].material.emissive.set(on?'#45e39a':'#764b18');
+  puzzleSwitchActors[i].material.color.set(on?'#a5ffd0':'#dcb878');
+ }
+ shrineCrystalMat.color.set(state.solved?'#7ef6d0':'#735b4a');
+ shrineCrystalMat.emissive.set(state.solved?'#22b781':'#29251d');
+ $('puzzle-progress').textContent=state.solved?'✓ パズルクリア！':`石のスイッチ · ${state.placed} / ${state.total}`;
+ return state;
+}
+function savePuzzleState(){
+ try{localStorage.setItem(PuzzleLogic.PUZZLE_STORAGE_KEY,JSON.stringify(puzzleBoxPositions()));}catch{}
+}
+function loadPuzzleState(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(PuzzleLogic.PUZZLE_STORAGE_KEY)||'null');
+  const positions=PuzzleLogic.validSavedPuzzleBoxes(raw,tutorialPuzzle.crates,tutorialPuzzle.pushStep);
+  if(positions){
+   // Move furthest crates first to reduce temporary overlap with other starts.
+   const order=positions.map((v,i)=>({v,i})).sort((a,b)=>b.v.z-a.v.z);
+   for(const {v,i} of order)if(!engine.puzzle_set(i,v.x,v.z)){engine.puzzle_reset();break;}
+  }
+ }catch{};
+ refreshPuzzleVisuals(true);
+}
+function nearestActivePuzzleBox(){
+ if(indoor.active||currentMapId!==tutorialPuzzle.map||mapSwitching)return null;
+ return PuzzleLogic.nearestPuzzleBox(engine.get_x(),engine.get_z(),puzzleBoxPositions());
+}
+function tryPushPuzzleBox(index){
+ if(index===null)return false;
+ const boxes=puzzleBoxPositions(),box=boxes[index];
+ const dir=PuzzleLogic.puzzlePushDirection(engine.get_x(),engine.get_z(),box.x,box.z);
+ if(engine.puzzle_push(index,dir.x,dir.z)){
+  const state=refreshPuzzleVisuals();savePuzzleState();
+  puzzleMessage=state.solved?'2つのスイッチが作動しました！':'木箱を押しました';
+  puzzleMessageUntil=performance.now()+1700;
+  return true;
+ }
+ puzzleMessage='押せません。箱の正面に立つか、別方向から押してください';
+ puzzleMessageUntil=performance.now()+1900;
+ return false;
+}
+function updatePuzzleHud(x,z,dt){
+ if(currentMapId===0){
+  const k=1-Math.exp(-Math.max(0,dt)*14);
+  for(const actor of puzzleCrateActors){
+   actor.position.x+=(actor.userData.goalX-actor.position.x)*k;
+   actor.position.z+=(actor.userData.goalZ-actor.position.z)*k;
+  }
+ }
+ const visible=!indoor.active&&currentMapId===tutorialPuzzle.map&&x>=-1&&x<=14&&z>=21&&z<=40;
+ $('puzzle-hud').classList.toggle('active',visible);
+ if(!visible)return;
+ $('puzzle-guide').textContent=performance.now()<puzzleMessageUntil?puzzleMessage:
+   puzzleCompleted?'床スイッチがすべて点灯！': '箱の手前からE／画面ボタンで押す';
+ shrineCrystal.rotation.y+=.012;
+ shrineCrystal.position.y=1.29+Math.sin(animationTime*2.2)*.095;
+}
+loadPuzzleState();
+$('test-puzzle').addEventListener('click',()=>{
+ if(indoor.active)leaveHouse();changeArea(0,{x:7.85,z:25.5});$('panel-toggle').click();
+});
+$('puzzle-reset').addEventListener('click',()=>{
+ if(indoor.active)leaveHouse();changeArea(0,{x:7.85,z:25.5});
+ engine.puzzle_reset();refreshPuzzleVisuals(true);
+ try{localStorage.removeItem(PuzzleLogic.PUZZLE_STORAGE_KEY);}catch{}
+ puzzleMessage='箱の位置をリセットしました';puzzleMessageUntil=performance.now()+1800;
+ $('panel-toggle').click();
+});
+for(const root of Object.values(areaRoots)){outdoorObjects.push(root);outdoorVisibility.set(root,false);}
+function refreshAreaVisibility(indoorActive=false){
+ for(const o of outdoorObjects){
+   if(Object.values(areaRoots).includes(o))o.visible=!indoorActive&&currentMapId===Number(o.name.slice(-1));
+   else o.visible=!indoorActive&&currentMapId===0?outdoorVisibility.get(o):false;
+ }
+ lamps.forEach(light=>light.visible=!indoorActive&&currentMapId===0);
+ collisionOverlay.visible=!indoorActive&&currentMapId===0&&$('collision-guide').checked;
+ cameraCollisionOverlay.visible=!indoorActive&&currentMapId===0&&$('collision-guide').checked&&cameraClearance>0;
+ elevationGuide.visible=!indoorActive&&currentMapId===0&&$('elevation-guide').checked;
+}
+function changeArea(mapId,spawn){
+ currentMapId=mapId;
+ engine.set_map(mapId);
+ engine.reset(spawn.x,spawn.z);
+ refreshAreaVisibility(false);
+ target.set(engine.get_x(),engine.get_y(),engine.get_z());cameraTarget.copy(target);
+ hero.position.set(engine.get_x(),engine.get_y()+.10,engine.get_z());
+ inputs.clear();oneShot=null;heroAnimClock=0;lastDrawKey='';
+ $('region-name').textContent=areaData.maps[mapId].name;
+ syncDoorPrompt();
+}
+function tryAreaPortal(portal=AreaMaps.findPortal(currentMapId,engine.get_x(),engine.get_z(),areaData.portals)){
+ if(indoor.active||mapSwitching||!portal)return;
+ mapSwitching=true;
+ const overlay=$('map-fade');$('map-fade-label').textContent=areaData.maps[portal.to].name;
+ overlay.classList.add('active');
+ setTimeout(()=>{
+   changeArea(portal.to,portal.spawn);
+   setTimeout(()=>{overlay.classList.remove('active');mapSwitching=false;},260);
+ },260);
+}
+$('test-east-gate').addEventListener('click',()=>{
+  if(indoor.active)leaveHouse();
+  changeArea(0,{x:14,z:75});
+  $('panel-toggle').click();
+});
+refreshAreaVisibility(false);
+applySeasonVisuals(true); // Initial spring colour before first scene render.
+const roomMats={
+ floor:new THREE.MeshStandardMaterial({color:'#a78c6b',roughness:.86}),
+ wall:new THREE.MeshStandardMaterial({color:'#c8b395',roughness:.91}),
+ edge:new THREE.MeshStandardMaterial({color:'#574438',roughness:.8}),
+ wooden:new THREE.MeshStandardMaterial({color:'#785238',roughness:.83}),
+ bed:new THREE.MeshStandardMaterial({color:'#8e9db7',roughness:.9}),
+ light:new THREE.MeshStandardMaterial({color:'#b9c3bf',emissive:'#e5bd83',emissiveIntensity:.18,roughness:.52}),
+ rug:new THREE.MeshStandardMaterial({color:'#a55e58',roughness:.9})
+};
+const roomBlock=(x,y,z,w,h,d,m)=>{
+  const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+  o.position.set(x,y,z);o.receiveShadow=true;o.castShadow=true;roomRoot.add(o);return o;
+};
+roomBlock(0,-.13,0,8,.25,7.65,roomMats.floor);
+// Cutaway side walls: keep the physical collision in door-logic.mjs,
+// but no opaque 3-metre wall between camera and the 2D hero at room edges.
+const roomBackWall=roomBlock(0,1.48,-3.82,8.1,3.1,.27,roomMats.wall.clone());
+roomBackWall.material.side=THREE.DoubleSide;
+const roomWallMeshes=[roomBackWall];
+for(const side of [-1,1]){
+  const rail=roomBlock(side*4.02,.31,0,.27,.62,7.75,roomMats.wall.clone());
+  rail.userData.roomSideRail=true;
+  roomWallMeshes.push(rail);
+}
+
+for(const x of [-3.7,3.7])roomBlock(x,.11,0,.10,.21,7.4,roomMats.edge);
+roomBlock(0,.12,-3.65,7.9,.22,.14,roomMats.edge);
+// Open front = classic HD-2D cutaway. No roof or near wall obstructing the hero.
+roomBlock(0,.014,0,3.3,.028,2.5,roomMats.rug);
+// Room objects and collision now share src/door-logic.mjs footprint data.
+const indoorItems=Object.fromEntries(DoorLogic.INTERIOR_FURNITURE.map(f=>[f.id,f]));
+const bed=indoorItems.bed,table=indoorItems.table;
+roomBlock(bed.x,.37,bed.z,bed.w,.48,bed.d,roomMats.wooden);
+roomBlock(bed.x,.66,bed.z-.37,bed.w-.08,.16,1.36,roomMats.bed);
+roomBlock(table.x,.78,table.z,table.w,.17,table.d,roomMats.wooden);
+for(const chair of [indoorItems['chair-left'],indoorItems['chair-right']]){
+ roomBlock(chair.x,.35,chair.z,chair.w,.65,chair.d,roomMats.wooden);
+}
+const cabinet=indoorItems.cabinet;
+roomBlock(cabinet.x,1.14,cabinet.z,cabinet.w,2.20,cabinet.d,roomMats.wooden);
+for(const y of [.65,1.30,2.05])roomBlock(cabinet.x+.03,y,cabinet.z+.39,1.18,.10,.14,roomMats.edge);
+// Two subdued framed windows; no blown-out emissive rectangles.
+const windowPanes=[];
+for(const x of [-.70,1.85]){
+ const z=-3.61;
+ roomBlock(x,2.4,z-.065,1.04,.77,.10,roomMats.edge);
+ const pane=roomBlock(x,2.4,z+.012,.83,.56,.12,roomMats.light.clone());
+ pane.castShadow=false;windowPanes.push(pane);
+ roomBlock(x,2.4,z+.085,.07,.59,.04,roomMats.edge);
+}
+function setIndoorWindowBrightness(value){
+ const level=Math.max(0,Math.min(100,Number(value)||0))/100;
+ for(const pane of windowPanes)pane.material.emissiveIntensity=level*.50;
+ $('indoor-window-light-out').textContent=Math.round(level*100)+'%';
+}
+$('indoor-window-light').addEventListener('input',e=>setIndoorWindowBrightness(e.target.value));
+setIndoorWindowBrightness($('indoor-window-light').value);
+// Display padded collider extents as cyan floor guides when requested.
+const interiorCollisionGuides=new THREE.Group();roomRoot.add(interiorCollisionGuides);
+for(const item of DoorLogic.INTERIOR_FURNITURE){
+ const q=DoorLogic.interiorFurnitureBounds(item);
+ const points=[new THREE.Vector3(q.minX,.08,q.minZ),new THREE.Vector3(q.maxX,.08,q.minZ),
+   new THREE.Vector3(q.maxX,.08,q.maxZ),new THREE.Vector3(q.minX,.08,q.maxZ)];
+ const g=new THREE.BufferGeometry().setFromPoints([...points,points[0]]);
+ const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x82ebcb,depthTest:false}));
+ l.renderOrder=28;interiorCollisionGuides.add(l);
+}
+interiorCollisionGuides.visible=false;
+$('collision-guide').addEventListener('change',()=>{
+ interiorCollisionGuides.visible=indoor.active&&$('collision-guide').checked;
+});
+roomBlock(0,.055,3.02,2,.10,.62,roomMats.edge);
+const roomLamp=new THREE.PointLight('#ffddad',18,12,2);
+roomLamp.position.set(.3,3,0);roomRoot.add(roomLamp);
+// Interior light levels deliberately do NOT follow outdoor sun/ambient levels.
+// A low, warm room fill preserves depth without washing out the walls/furniture.
+const indoorRoomLightColor=new THREE.Color('#eee0cf');
+function applyIndoorLighting(){
+  if(!indoor.active)return;
+  const value=Math.max(20,Math.min(140,Number($('indoor-room-light').value)||80));
+  const p=value/100;
+  ambient.intensity=.12+.32*p;
+  sun.intensity=.08+.32*p;
+  fillLight.intensity=.05+.19*p;
+  rimLight.intensity=.06+.19*p;
+  roomLamp.intensity=3.2+11*p;
+  renderer.toneMappingExposure=.64+.27*p;
+  heroMaterial.color.copy(indoorRoomLightColor).multiplyScalar(.70+.24*Math.min(p,1.4));
+}
+$('indoor-room-light').addEventListener('input',e=>{
+  $('indoor-room-light-out').textContent=e.target.value+'%';
+  applyIndoorLighting();
+});
+
+// The room title changes for each entrance without loading external assets.
+const roomLabel=document.createElement('canvas');roomLabel.width=256;roomLabel.height=64;
+const roomCtx=roomLabel.getContext('2d');
+const labelTexture=new THREE.CanvasTexture(roomLabel);
+const labelMat=new THREE.MeshBasicMaterial({map:labelTexture,transparent:true,side:THREE.DoubleSide});
+const labelMesh=new THREE.Mesh(new THREE.PlaneGeometry(2.65,.66),labelMat);
+labelMesh.position.set(0,2.5,-3.64);roomRoot.add(labelMesh);
+function paintRoomLabel(id){
+  roomCtx.clearRect(0,0,256,64);roomCtx.fillStyle='#543d2b';roomCtx.fillRect(0,0,256,64);
+  roomCtx.strokeStyle='#d4ba86';roomCtx.lineWidth=3;roomCtx.strokeRect(3,3,250,58);
+  roomCtx.fillStyle='#ffe7b8';roomCtx.font='bold 27px sans-serif';roomCtx.textAlign='center';
+  roomCtx.fillText('HOUSE '+String(id+1).padStart(2,'0'),128,42);labelTexture.needsUpdate=true;
+}
+const indoor={active:false,id:-1,x:0,z:1.1,y:0,vy:0,view:null};
+const OUTDOOR_CAMERA_FOV=41;
+const INDOOR_CAMERA_FOV=52;
+const INDOOR_CAMERA_AZIMUTH=.08;
+const INDOOR_CAMERA_ELEVATION=1.12;
+let indoorWallMessageUntil=0;
+function refitIndoorCamera(){
+  if(!indoor.active)return;
+  camera.fov=INDOOR_CAMERA_FOV;
+  camera.updateProjectionMatrix();
+  // Fit the real bounds rather than a fixed zoom value. Narrow portrait
+  // screens need a longer distance to keep both side walls inside the view.
+  zoom=InteriorCamera.computeInteriorFitDistance({
+    aspect:camera.aspect, fovDeg:camera.fov, azimuth,
+    elevation, margin:.86, focusY:1.0
+  });
+  $('zoom').min='8';
+  $('zoom').value=String(Math.round(zoom));$('zoom-out').textContent=String(Math.round(zoom));
+}
+function updateRoomWallVisibility(){
+  if(!indoor.active)return;
+  // If the camera has been rotated behind the back wall, don't let the wall
+  // hide the character. No visual/collider changes to the outdoor scene.
+  const wall=roomBackWall,mat=wall.material;
+  const from=new THREE.Vector3().copy(camera.position),to=new THREE.Vector3().copy(hero.position);
+  const vector=to.sub(from),distance=vector.length();
+  const ray=new THREE.Raycaster(from,vector.normalize(),0,Math.max(0,distance-.12));
+  const blocked=ray.intersectObject(wall,false).length>0;
+  if(wall.userData.ghost!==blocked){
+    wall.userData.ghost=blocked;mat.transparent=blocked;mat.opacity=blocked?.12:1;
+    mat.depthWrite=!blocked;mat.needsUpdate=true;
+  }
+}
+
+let nearbyDoor=null,roomExitReady=false;
+const DOOR_RESET_POSITIVE_Z=3.90;
+function setIndoorState(active){
+  refreshAreaVisibility(active);
+  roomRoot.visible=active;
+  interiorCollisionGuides.visible=active&&$('collision-guide').checked;
+  if(active)roomRoot.updateMatrixWorld(true);
+  if(!active){roomBackWall.material.transparent=false;roomBackWall.material.opacity=1;roomBackWall.material.depthWrite=true;roomBackWall.userData.ghost=false;roomBackWall.material.needsUpdate=true;}
+  $('surface-state').textContent=active?'室内':'接地';
+  if(active){scene.background=new THREE.Color('#343147');scene.fog.color.set('#343147');applyIndoorLighting();}
+  else skyClock(worldClock.minuteOfDay/60);
+  lastDrawKey='';
+}
+function enterHouse(id){
+  if(indoor.active)return;
+  indoor.active=true;indoorActiveForResize=true;indoor.id=id;indoor.x=0;indoor.z=1.1;indoor.y=0;indoor.vy=0;
+  indoor.view={azimuth,elevation,zoom,follow,fov:camera.fov};
+  inputs.clear();oneShot=null;heroAnimClock=0;setGameplayPreview();
+  azimuth=INDOOR_CAMERA_AZIMUTH;elevation=INDOOR_CAMERA_ELEVATION;follow=true;
+  refitIndoorCamera();
+  paintRoomLabel(currentMapId===2?id+18:id);roomMats.wall.color.set(id%2?'#b7c8bd':'#c8b395');
+  for(const wall of roomWallMeshes)wall.material.color.copy(roomMats.wall.color);
+  setIndoorState(true);target.copy(interiorOrigin);target.y=.5;cameraTarget.copy(target);
+  indoorWallMessageUntil=0;$('room-wall-message').classList.remove('active');
+  syncDoorPrompt();
+}
+function leaveHouse(){
+  if(!indoor.active)return;
+  const house=currentMapId===2?townDef.houses[indoor.id]:collisionWorld.houses[indoor.id];
+  indoor.active=false;indoorActiveForResize=false;indoor.id=-1;indoor.y=0;indoor.vy=0;
+  inputs.clear();oneShot=null;heroAnimClock=0;setGameplayPreview();
+  const v=indoor.view;azimuth=v.azimuth;elevation=v.elevation;zoom=v.zoom;follow=v.follow;camera.fov=v.fov;camera.updateProjectionMatrix();
+  $('zoom').min='16';$('zoom').value=String(Math.round(zoom));$('zoom-out').textContent=String(Math.round(zoom));
+  indoorWallMessageUntil=0;$('room-wall-message').classList.remove('active');
+  engine.reset(house.x,house.z+DOOR_RESET_POSITIVE_Z);
+  setIndoorState(false);
+  target.set(engine.get_x(),engine.get_y(),engine.get_z());cameraTarget.copy(target);
+  syncDoorPrompt();
+}
+function syncDoorPrompt(){
+  nearbyDoor=indoor.active?null:DoorLogic.nearOutdoorDoor(engine.get_x(),engine.get_z(),currentMapId===2?townDef.houses:currentMapId===0?collisionWorld.houses:[]);
+  roomExitReady=indoor.active&&DoorLogic.nearIndoorExit(indoor.x,indoor.z);
+  const nearPuzzle=nearbyDoor===null?nearestActivePuzzleBox():null;
+  const nearbyGate=!indoor.active&&!mapSwitching&&nearbyDoor===null ? AreaMaps.findNearbyPortal(currentMapId,engine.get_x(),engine.get_z(),areaData.portals):null;
+  const available=indoor.active?roomExitReady:(nearbyDoor!==null||nearbyGate!==null||nearPuzzle!==null);
+  $('interact-btn').classList.toggle('active',available);
+  $('door-prompt').classList.toggle('active',available);
+  if(available){
+    const text=indoor.active?'Eキー / ボタンで外へ出る':nearbyGate?`${nearbyGate.label}：右へ進むか Eキー／ボタンで移動`:nearPuzzle!==null?`木箱 ${nearPuzzle+1}：Eキー／ボタンで押す`:`家 ${currentMapId===2?nearbyDoor+19:nearbyDoor+1}：Eキー / ボタンで入る`;
+    $('door-prompt').textContent=text;
+    $('interact-btn').textContent=indoor.active?'E · 出る':nearbyGate?'E · 移動':nearPuzzle!==null?'E · 押す':'E · 入る';
+  }
+}
+function tryInteract(){
+  if(indoor.active){if(DoorLogic.nearIndoorExit(indoor.x,indoor.z))leaveHouse();}
+  else{
+    const id=DoorLogic.nearOutdoorDoor(engine.get_x(),engine.get_z(),currentMapId===2?townDef.houses:currentMapId===0?collisionWorld.houses:[]);
+    if(id!==null)enterHouse(id);
+    else if(nearestActivePuzzleBox()!==null)tryPushPuzzleBox(nearestActivePuzzleBox());
+    else {
+      const portal=AreaMaps.findNearbyPortal(currentMapId,engine.get_x(),engine.get_z(),areaData.portals);
+      if(portal)tryAreaPortal(portal);
+    }
+  }
+}
+$('interact-btn').addEventListener('click',tryInteract);
+window.addEventListener('keydown',e=>{
+  if(e.repeat||e.key.toLowerCase()!=='e'||e.target.closest?.('input,textarea,select,button'))return;
+  e.preventDefault();tryInteract();
+});
+// Physical jump inside the room uses independent local height/velocity,
+// so the outdoor WASM position is unchanged when entering or exiting.
+const oldBeginJump=beginHeroAction;
+beginHeroAction=function(action){
+  if(indoor.active && action==='jump'){
+    if(indoor.y>0||indoor.vy!==0)return;
+    indoor.vy=5.0;setGameplayPreview();
+    oneShot={action:'jump',elapsed:0,duration:.88};heroAnimClock=0;
+    return;
+  }
+  oldBeginJump(action);
+};
+syncDoorPrompt();
+
+const clock=new THREE.Clock();let animationTime=0,frameSamples=0,lastShown=performance.now();
+let tickBusy=false;
+async function tick(){
+ if(tickBusy)return;
+ tickBusy=true;
+ try{
+ const rawDelta=clock.getDelta();
+ const dt=Math.min(.05,rawDelta);
+ const timeEvents=WorldTime.advanceWorldClock(worldClock,document.hidden?0:Math.min(rawDelta,1));
+ if(timeEvents.minuteChanged||timeEvents.phaseChanged||timeEvents.dayChanged)renderWorldClock();
+ // No offline catch-up; game time advances only while the simulation renders.
+ if(performance.now()-lastClockSaveTime>10000){saveWorldClock();lastClockSaveTime=performance.now();}
+ const dx=Number(inputs.has('d')||inputs.has('arrowright'))-Number(inputs.has('a')||inputs.has('arrowleft'));
+ const dz=Number(inputs.has('s')||inputs.has('arrowdown'))-Number(inputs.has('w')||inputs.has('arrowup'));
+ // The view vector points horizontally FROM the character TOWARD the camera.
+ engine.set_view_collision(Math.sin(azimuth),Math.cos(azimuth),cameraClearance);
+ updateCameraCollisionOverlay();
+ engine.set_running((inputs.has('shift')||mobileRun)?1:0);
+ if(!indoor.active){if(!mapSwitching){engine.move_player(dx,dz,dt);tryAreaPortal();}}
+ else{
+   const next=DoorLogic.stepInteriorPlayer(indoor.x,indoor.z,dx,dz,dt,(inputs.has('shift')||mobileRun)?5.94:3.6);
+   if((dx||dz) && Math.hypot(next.x-indoor.x,next.z-indoor.z)<.0001){
+     indoorWallMessageUntil=performance.now()+900;
+   }
+   indoor.x=next.x;indoor.z=next.z;
+   $('room-wall-message').classList.toggle('active',performance.now()<indoorWallMessageUntil);
+
+   if(indoor.y>0||indoor.vy>0){
+     indoor.vy-=12.8*dt;indoor.y+=indoor.vy*dt;
+     if(indoor.y<=0){indoor.y=0;indoor.vy=0;}
+   }
+ }
+ updateTownNpcSchedules();
+ const x=indoor.active?interiorOrigin.x+indoor.x:engine.get_x(),
+       y=indoor.active?indoor.y:engine.get_y(),
+       z=indoor.active?interiorOrigin.z+indoor.z:engine.get_z();
+ syncDoorPrompt();
+ updatePuzzleHud(x,z,dt);
+ if(indoor.active){
+   $('region-name').textContent='室内 — '+(currentMapId===2?'翠峰の町':indoor.id>=12?'青葉の町':'石畳の村');
+   $('trail-guide').textContent='Eキーで玄関から屋外に戻れます';
+ } else {
+   if(currentMapId===0){
+     const region=collisionWorld.regions.find(r=>z>=r.minZ&&z<r.maxZ)||collisionWorld.regions.at(-1);
+     $('region-name').textContent=region.name;
+     const remaining=Math.max(0,Math.round(trailSpec.targetZ-z));
+     if(region.id==='origin')$('trail-guide').textContent='南（S / ↓）へ進むと街道';
+     else if(region.id==='forest')$('trail-guide').textContent=(z>=20&&z<=39)?'右側の林間広場に木箱パズルがあります':`青葉の町まで 約${remaining}m（南へ）`;
+     else {
+       const gate=areaData.portals.find(p=>p.id==='aoba-to-mountain');
+       const centerZ=(gate.zMin+gate.zMax)/2;
+       const zDelta=centerZ-z;
+       const eastDistance=Math.max(0,Math.ceil(gate.x-x));
+       $('trail-guide').textContent=Math.abs(zDelta)>1.4
+         ? `東門: ${zDelta>0?'南（S／↓）':'北（W／↑）'}へ${Math.round(Math.abs(zDelta))}m → 右へ`
+         : `石造りの東門（右・D／▶）まで 約${eastDistance}m`;
+     }
+   }else{
+     $('region-name').textContent=areaData.maps[currentMapId].name;
+     $('trail-guide').textContent=currentMapId===1?'西端＝青葉の町／東端＝翠峰の町':'西端（左・A）から山岳街道に戻る';
+   }
+ }
+ animationTime+=dt;
+ heroFacing=directionFromInput(dx,dz);
+ const preview=$('char-preview').value;
+ let action=(dx||dz)?((inputs.has('shift')||mobileRun)?'run':'walk'):'idle';
+ if(oneShot){
+   oneShot.elapsed+=dt;
+   if(oneShot.elapsed<oneShot.duration){action=oneShot.action;}
+   else oneShot=null;
+ }
+ if(preview==='auto'&&(indoor.active?indoor.y>0:!engine.is_grounded()) && (!oneShot||oneShot.action!=='attack')) action='jump';
+ if(preview!=='auto')action=preview;
+ if(heroAction!==action){heroAction=action;heroAnimClock=0;}
+ else heroAnimClock+=dt;
+ const cfg=SPRITE_CONFIG[action];
+ const isOneShot=(preview==='auto'&&oneShot&&action===oneShot.action);
+ const frame=isOneShot?Math.min(cfg.frames-1,Math.floor(oneShot.elapsed*cfg.fps)) : Math.floor(heroAnimClock*cfg.fps)%cfg.frames;
+ drawSprite(action,frame,heroFacing,dx,dz);
+ updateHeroSize(action);
+ hero.position.set(x,y+.10,z);
+ const groundY=indoor.active?0:engine.get_ground_y();
+ heroShadow.position.set(x,groundY+.07,z);
+ footGuide.position.set(x,groundY+.09,z);
+ heroShadow.scale.setScalar((indoor.active?indoor.y===0:engine.is_grounded())?1:Math.max(.55,1-(y-groundY)*.29));
+ $('dir-state').textContent=spriteFacingStatus;
+ $('char-state').textContent=action+(preview==='auto'?'':' [プレビュー]');
+ $('char-frame').textContent=`${action} ${frame+1}/${cfg.frames}`;
+ if(displayedInfoAction!==action){displayedInfoAction=action;refreshSpriteInfo();}
+ if(indoor.active){target.copy(interiorOrigin);target.y=.5;}
+ else if(follow){
+   target.set(x,y,z);
+   const lead=Number($('camera-lead').value);
+   if(dx||dz){const inv=1/Math.hypot(dx,dz);target.x+=dx*inv*lead;target.z+=dz*inv*lead;}
+ } else target.set(0,0,0);
+ const followSpeed=Number($('follow-speed').value);
+ cameraTarget.lerp(target,1-Math.exp(-dt*followSpeed));
+ const radius=zoom;
+ camera.position.set(cameraTarget.x+Math.sin(azimuth)*Math.cos(elevation)*radius,
+                     cameraTarget.y+(indoor.active?.5:0)+Math.sin(elevation)*radius,
+                     cameraTarget.z+Math.cos(azimuth)*Math.cos(elevation)*radius);
+ camera.lookAt(cameraTarget.x,cameraTarget.y+0.5,cameraTarget.z);
+ // Without translating the sun + target, the shadow frustum only covers the
+ // original village. This follows the player without changing sun direction.
+ sun.position.set(x+sunOrbitOffset.x,y+sunOrbitOffset.y,z+sunOrbitOffset.z);
+ sun.target.position.set(x,y,z);
+ sun.target.updateMatrixWorld();
+ if(indoor.active)updateRoomWallVisibility();
+ else updateOcclusion(dt,x,y,z);
+ water.rotation.y+=dt*.08;
+ const waterOn=$('water-ripple-enabled').checked;
+ const rippleGain=Number($('water-ripple-strength').value)/100;
+ for(const ring of waterRipples){
+   const phase=(animationTime*.22+ring.userData.phase)%1;
+   const radius=.12+.91*phase;
+   ring.scale.setScalar(radius);
+   ring.material.opacity=waterOn?Math.max(0,Math.sin(Math.PI*phase))*.23*rippleGain:0;
+   ring.visible=waterOn;
+ }
+ for(let i=0;i<waterGlints.length;i++){
+   const glint=waterGlints[i];glint.visible=waterOn;
+   glint.material.opacity=waterOn?(.10+.12*(.5+.5*Math.sin(animationTime*2.2+i*1.8)))*rippleGain:0;
+ }
+ const dappleOn=$('dapple-enabled').checked;
+ dappleMaterial.opacity=dappleOn?cinematicDaylight*Number($('dapple-strength').value)/100*.7:0;
+ dappleMeshes.forEach((mesh,i)=>{mesh.visible=dappleOn&&cinematicDaylight>.04;mesh.rotation.z=(i*.37)+Math.sin(animationTime*.22+i)*.12;});
+ const shaftsOn=$('shafts-enabled').checked;
+ shaftsMaterial.opacity=shaftsOn?cinematicDaylight*Number($('shafts-strength').value)/100*.75:0;
+ for(const sp of shaftSprites)sp.visible=shaftsOn&&cinematicDaylight>.05;
+ const activeParticleMode=effectiveParticleMode();
+ particleTime.value=animationTime;
+ recenterParticleField(x,y,z);
+ if(!indoor.active&&fallbackFlies.visible)stepFallbackParticles(dt,activeParticleMode);
+ if(indoor.active){fallbackFlies.visible=false;if(gpuParticles)gpuParticles.visible=false;}
+ else {
+   const active=activeParticleMode!=='off'&&Number($('particle-density').value)>0;
+   fallbackFlies.visible=active&&(!gpuParticles||!particleStep);
+   if(gpuParticles)gpuParticles.visible=active&&Boolean(particleStep);
+ }
+ fallbackFlies.rotation.y=Math.sin(animationTime*.11)*.018;
+ focusDistance.value=Math.max(1,camera.position.distanceTo(new THREE.Vector3(x,y+1,z))+Number($('focus-offset').value));
+ // Only the particle simulation runs on the GPU; movement and collisions remain in WASM.
+ if(nativeWebGPU && particleStep && $('particle-mode').value!=='off' && particleOpacity.value>0){
+   try{await renderer.computeAsync(particleStep);pendingParticleShift.set(0,0,0);particleAnchorShift.value.set(0,0,0);}catch(err){console.warn('GPU particle compute failed, retaining fallback particles',err);particleStep=null;if(gpuParticles)gpuParticles.visible=false;fallbackFlies.visible=true;}
+ }
+ // When a backend cannot compile an optional postprocess, keep the game playable.
+ try{postProcessing.render();}
+ catch(error){
+   console.warn('Postprocessing failed; disabling optional cinematic effects',error);
+   $('bloom').checked=false;$('dof').checked=false;
+   rebuildEffects();
+   $('gpu-info').textContent+=' / PostFXは互換モード';
+   renderer.render(scene,camera);
+ }
+ frameSamples++;
+ const now=performance.now();if(now-lastShown>400){
+   $('coords').textContent=`${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`;
+   $('surface-state').textContent=indoor.active?'室内':(engine.is_grounded()?'接地':'空中');
+   $('hits').textContent=indoor.active?'—':engine.get_collision_count();
+   $('frames').textContent=engine.get_frame_count().toLocaleString();
+   $('fps').textContent=Math.round(frameSamples*1000/(now-lastShown));
+   frameSamples=0;lastShown=now;
+ }
+ }finally{tickBusy=false;}
+}
+renderer.setAnimationLoop(tick);
+</script>
+</body>
+</html>

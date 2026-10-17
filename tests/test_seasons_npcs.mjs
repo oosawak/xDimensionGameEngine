@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {seasonAtDay,sunlightAtHour,npcSchedule,npcPosition} from '../src/world-seasons.mjs';
+import {createWorldClock,advanceWorldClock,worldClockSnapshot} from '../src/world-clock.mjs';
+const keys=['spring','summer','autumn','winter'];
+for (let i=0;i<4;i++) {
+ assert.equal(seasonAtDay(i*7+1,7).key, keys[i]);
+ assert.equal(seasonAtDay(i*7+7,7).dayInSeason,7);
+}
+assert.equal(seasonAtDay(29,7).key,'spring');assert.equal(seasonAtDay(29,7).year,2);
+assert.equal(seasonAtDay(121,30).key,'spring');
+assert.equal(seasonAtDay(15,7).key,'autumn');
+assert.equal(sunlightAtHour(18.5,'summer').dayFactor>0,true);
+assert.equal(sunlightAtHour(18.5,'winter').dayFactor,0);
+assert.equal(sunlightAtHour(5.5,'summer').dayFactor>0,true);
+assert.equal(sunlightAtHour(5.5,'winter').dayFactor,0);
+assert.equal(npcSchedule(6*60).visible,false);
+assert.equal(npcSchedule(7.5*60).state,'leaving');
+assert.equal(npcSchedule(18*60).state,'returning');
+assert.equal(npcSchedule(21*60).visible,false);
+const home={x:1,z:1},work={x:5,z:9};
+assert.equal(npcPosition(home,work,420).x,1);
+assert.equal(npcPosition(home,work,480).x,5);
+assert.equal(npcPosition(home,work,1140).x,1);
+const c=createWorldClock({seasonDays:30,day:30,minuteOfDay:1439});
+advanceWorldClock(c,61);assert.equal(seasonAtDay(c.day,c.seasonDays).key,'summer');
+const saved=worldClockSnapshot(c);assert.deepEqual(createWorldClock(saved),saved);
+assert.equal(createWorldClock({seasonDays:12}).seasonDays,12);
+assert.equal(createWorldClock().seasonDays,1);
+assert.equal(seasonAtDay(1,1).key,'spring');
+assert.equal(seasonAtDay(2,1).key,'summer');
+assert.equal(seasonAtDay(3,1).key,'autumn');
+assert.equal(seasonAtDay(4,1).key,'winter');
+assert.equal(seasonAtDay(5,1).key,'spring');
+assert.equal(seasonAtDay(6,5).key,'summer');
+console.log('season + npc: PASS (calendar, daylight, schedule, persistence)');

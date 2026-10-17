@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const src=fs.readFileSync(new URL('../index.template.html',import.meta.url),'utf8');
+const a=src.indexOf('const TUNING_KEYS=');
+const b=src.indexOf("let tuningAction='attack'",a);
+assert.ok(a>=0 && b>a);
+const code=src.slice(a,b);
+function run(saved){
+ const data=new Map();
+ if(saved)data.set('xdimension-haruka-v1-character-tuning',JSON.stringify(saved));
+ const ctx=vm.createContext({Math,Number,JSON,localStorage:{getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)}});
+ vm.runInContext("const ACTIONS=['idle','walk','run','jump','attack'];let currentSpriteSet='haruka';"+code,ctx);
+ return {tuning:JSON.parse(vm.runInContext('JSON.stringify(spriteTuning)',ctx)),data};
+}
+assert.equal(run(null).tuning.jump.scale,125,'new user gets 125%');
+const previous={idle:{scale:110,x:2,y:0},walk:{scale:100,x:0,y:0},run:{scale:100,x:0,y:0},jump:{scale:95,x:0,y:8},attack:{scale:83,x:0,y:0}};
+const migrated=run(previous).tuning;
+assert.equal(migrated.jump.scale,125,'previous default 95% migrates to 125%');
+assert.equal(migrated.jump.y,8,'jump y is preserved');
+assert.equal(migrated.attack.scale,83,'other custom animation scale is preserved');
+assert.equal(migrated.idle.scale,110,'idle custom value preserved');
+const custom=run({...previous,jump:{scale:118,x:0,y:0}}).tuning;
+assert.equal(custom.jump.scale,118,'custom jump value must be preserved');
+assert.equal(run({...previous,jump:{scale:130,x:1,y:2}}).tuning.jump.scale,125,'previous default 130% migrates to 125%');
+assert.equal(run({...previous,jump:{scale:120,x:1,y:2}}).tuning.jump.scale,120,'custom 120% is preserved');
+assert.equal(run(null).tuning.attack.scale,103,'new Haruka attack matches legacy visual size');
+assert.equal(run({...previous,attack:{scale:85,x:3,y:-4}}).tuning.attack.scale,103,'old Haruka attack default migrates to 103%');
+assert.equal(run({...previous,attack:{scale:85,x:3,y:-4}}).tuning.attack.x,3,'attack X preserved');
+assert.equal(run({...previous,attack:{scale:85,x:3,y:-4}}).tuning.attack.y,-4,'attack Y preserved');
+assert.equal(run({...previous,jump:{scale:110,x:0,y:0}}).tuning.jump.scale,125,'v0.0.15 Haruka jump default migrates');
+console.log('PASS: Haruka pose scales default/migrate to jump 125%, attack 103%; custom tuning preserved');

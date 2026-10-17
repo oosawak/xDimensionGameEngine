@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {nearOutdoorDoor} from '../src/door-logic.mjs';
+const root=new URL('../',import.meta.url);
+const world=JSON.parse(fs.readFileSync(new URL('assets/collision-world.json',root),'utf8'));
+const web=fs.readFileSync(new URL('index.template.html',root),'utf8');
+const engine=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(new URL('dist/engine.wasm',root)))).exports;
+assert.equal(world.houses.length,18);
+assert.equal(world.houses.filter(h=>h.region==='青葉の町').length,6);
+assert.equal(world.regions.length,3);
+assert.equal(world.bounds.maxZ,100);
+assert.equal(world.southAccess.height,world.elevation.deck.height);
+engine.set_view_collision(.65,.76,1);
+engine.reset(0,3.5);
+for(let i=0;i<440;i++) engine.move_player(0,1,.05);
+assert(engine.get_z()>80,`Cannot reach second town by walking: z=${engine.get_z()}`);
+assert.equal(engine.get_collision_count(),0,'center trail should not be blocked');
+assert(Math.abs(engine.get_y())<.05,'town two must be walkable at ground level');
+for(let i=0;i<440;i++) engine.move_player(0,-1,.05);
+assert(Math.abs(engine.get_z()-3.5)<.10,`Cannot return to starting village: z=${engine.get_z()}`);
+assert.equal(engine.get_collision_count(),0,'return route must not clip original deck or stair walls');
+for(let i=12;i<18;i++){
+ const h=world.houses[i]; engine.reset(h.x,h.z+3.75);
+ assert(Math.abs(engine.get_x()-h.x)<.02,'new town door must not reset position');
+ assert.equal(nearOutdoorDoor(engine.get_x(),engine.get_z(),world.houses),i);
+ engine.reset(h.x,h.z-4.3);
+ for(let j=0;j<90;j++) engine.move_player(0,1,.05);
+ assert(engine.get_z()<h.z-h.halfZ-.4,'new town exterior must collide');
+}
+assert(web.includes('id="indoor-room-light-out">80%'));
+assert(web.includes('id="location-hud"'));
+assert(web.includes('collisionWorld.regions.find('));
+assert(web.includes('accessSideWalls(south,deck.height,-1)'));
+assert(web.includes("roomLabel") && web.includes("enterHouse(id)"));
+console.log('PASS: 2-town round-trip walking, six new house entrances & WASM collision; indoor lighting 80%; return ramp');

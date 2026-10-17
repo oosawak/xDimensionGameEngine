@@ -1,0 +1,75 @@
+{
+  "description": "xDimension v0.0.14; five Haruka animations only, 512px quality, fixed pivot and consistent world body size.",
+  "cell_width": 512,
+  "cell_height": 512,
+  "pivot_x": 256,
+  "pivot_y": 451,
+  "target_body_height_px": 275,
+  "actions": {
+    "idle": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 25,
+      "fps": 8,
+      "source_baseline": 680,
+      "source_center": 358,
+      "body_reference_px": 560,
+      "directions": {
+        "side": "haruka/idle.png"
+      },
+      "atlas_json": "haruka/idle-atlas.json"
+    },
+    "walk": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 25,
+      "fps": 12,
+      "source_baseline": 743,
+      "source_center": 369,
+      "body_reference_px": 690,
+      "directions": {
+        "side": "haruka/walk.png"
+      },
+      "atlas_json": "haruka/walk-atlas.json"
+    },
+    "run": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 25,
+      "fps": 16,
+      "source_baseline": 690,
+      "source_center": 355,
+      "body_reference_px": 570,
+      "directions": {
+        "side": "haruka/run.png"
+      },
+      "atlas_json": "haruka/run-atlas.json"
+    },
+    "jump": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 25,
+      "fps": 16,
+      "source_baseline": 640,
+      "source_center": 374,
+      "body_reference_px": 575,
+      "directions": {
+        "side": "haruka/jump.png"
+      },
+      "atlas_json": "haruka/jump-atlas.json"
+    },
+    "attack": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 22,
+      "fps": 18,
+      "source_baseline": 1448,
+      "source_center": 780,
+      "body_reference_px": 580,
+      "directions": {
+        "side": "haruka/attack.png"
+      },
+      "atlas_json": "haruka/attack-atlas.json"
+    }
+  }
+}

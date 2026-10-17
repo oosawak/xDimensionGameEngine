@@ -1,0 +1,22 @@
+// node tests/smoke.mjs [path-to-wasm]
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const bytes=readFileSync(process.argv[2]??'dist/engine.wasm');
+assert(WebAssembly.validate(bytes),'valid WebAssembly binary');
+const mod=new WebAssembly.Module(bytes);
+assert.equal(WebAssembly.Module.imports(mod).length,0,'WASM has no imports');
+const wasm=new WebAssembly.Instance(mod,{}).exports;
+const required=['reset','move_player','get_x','get_z','get_frame_count','get_collision_count','terrain_noise'];
+for(const name of required)assert.equal(typeof wasm[name],'function',name);
+wasm.reset(0,3.5);
+const start=wasm.get_z();
+for(let i=0;i<60;i++)wasm.move_player(0,-1,1/60);
+assert(wasm.get_z()<start-3,'movement roughly 3.6 units/s');
+assert.equal(wasm.get_frame_count(),60,'simulation ticks');
+wasm.reset(0,-1);
+for(let i=0;i<350;i++)wasm.move_player(0,-1,1/60);
+assert(wasm.get_z()>-2.1,'fountain blocks player');
+assert(wasm.get_collision_count()>0,'collision counter increments');
+assert(wasm.terrain_noise(5,7)>=0 && wasm.terrain_noise(5,7)<=1,'noise normalized');
+assert.equal(wasm.terrain_noise(5,7),wasm.terrain_noise(5,7),'noise deterministic');
+console.log('PASS: WASM engine v'+wasm.engine_version()+', movement/collision/noise/export tests');

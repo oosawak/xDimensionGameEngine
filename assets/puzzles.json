@@ -1,0 +1,13 @@
+{
+  "puzzles": [
+    {
+      "id": "forest-stone-switches",
+      "name": "こもれび街道・石のスイッチ",
+      "map": 0,
+      "description": "木箱を2つの光る床スイッチへ動かす",
+      "pushStep": 1.5,
+      "crates": [ { "x": 6.5, "z": 29 }, { "x": 9.2, "z": 29 } ],
+      "targets": [ { "x": 6.5, "z": 32 }, { "x": 9.2, "z": 32 } ]
+    }
+  ]
+}

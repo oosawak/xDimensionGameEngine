@@ -1,0 +1,71 @@
+{
+  "cell": {
+    "width": 512,
+    "height": 512,
+    "pivotX": 256,
+    "pivotY": 451,
+    "columns": 5
+  },
+  "actions": {
+    "idle": {
+      "frames": 25,
+      "fps": 8,
+      "directions": {
+        "side": "idle_side.webp"
+      },
+      "sourceFrame": {
+        "width": 768,
+        "height": 768
+      },
+      "compressedBytes": 870442
+    },
+    "walk": {
+      "frames": 25,
+      "fps": 12,
+      "directions": {
+        "side": "walk_side.webp"
+      },
+      "sourceFrame": {
+        "width": 768,
+        "height": 768
+      },
+      "compressedBytes": 908642
+    },
+    "run": {
+      "frames": 25,
+      "fps": 16,
+      "directions": {
+        "side": "run_side.webp"
+      },
+      "sourceFrame": {
+        "width": 768,
+        "height": 768
+      },
+      "compressedBytes": 1023990
+    },
+    "jump": {
+      "frames": 25,
+      "fps": 16,
+      "directions": {
+        "side": "jump_side.webp"
+      },
+      "sourceFrame": {
+        "width": 768,
+        "height": 768
+      },
+      "compressedBytes": 615490
+    },
+    "attack": {
+      "frames": 22,
+      "fps": 18,
+      "directions": {
+        "side": "attack_side.webp"
+      },
+      "sourceFrame": {
+        "width": 1536,
+        "height": 1536
+      },
+      "compressedBytes": 986670
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "description": "v0.5: 身体の見かけの身長を揃える。足元ピボット固定。将来 directions に front/back や斜め方向画像を追加可。",
+  "cell_width": 512,
+  "cell_height": 320,
+  "actions": {
+    "idle": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 21,
+      "fps": 5,
+      "source_baseline": 235,
+      "source_center": 128,
+      "body_reference_px": 213,
+      "directions": {
+        "side": "idle.png"
+      }
+    },
+    "walk": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 23,
+      "fps": 12,
+      "source_baseline": 215,
+      "source_center": 128,
+      "body_reference_px": 170,
+      "directions": {
+        "side": "walk.png"
+      }
+    },
+    "run": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 24,
+      "fps": 16,
+      "source_baseline": 215,
+      "source_center": 128,
+      "body_reference_px": 170,
+      "directions": {
+        "side": "run.png"
+      }
+    },
+    "jump": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 25,
+      "fps": 16,
+      "source_baseline": 213,
+      "source_center": 128,
+      "body_reference_px": 164,
+      "directions": {
+        "side": "jump.png"
+      }
+    },
+    "attack": {
+      "columns": 5,
+      "rows": 5,
+      "frames": 22,
+      "fps": 18,
+      "source_baseline": 483,
+      "source_center": 256,
+      "body_reference_px": 164,
+      "directions": {
+        "side": "attack.png"
+      }
+    }
+  },
+  "target_body_height_px": 172,
+  "pivot_x": 256,
+  "pivot_y": 284,
+  "directions": "side (右向き), front (手前), back (奥), front_right,front_left,back_right,back_left を任意に指定。left は right(side)の反転で代用。"
+}
