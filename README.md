@@ -1,4 +1,5 @@
-# xDimension Game Engine [確認用サイト](https://oosawak.github.io/xDimensionGameEngine/)
+# xDimension Game Engine 
+[確認用サイト](https://oosawak.github.io/xDimensionGameEngine/)
 **現行バージョン：v0.0.20**  |  **開発段階：技術デモ／ゲームエンジン試作**
 
 xDimension Game Engineは、**2Dのアニメーションキャラクターと3Dの町・地形を組み合わせる、ブラウザ向けHD-2Dゲームエンジンの試作**です。Three.jsでワールドを描画し、プレイヤーの移動・屋外衝突・地面の高さなどをWebAssembly（WASM）で処理します。PCとスマートフォンの両方から操作できます。
