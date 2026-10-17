@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10141e">
-<title>xDimension Game Engine v0.0.16 — Connected Worlds × Three.js × WASM</title>
+<title>xDimension Game Engine v0.0.18 — Connected Worlds × Three.js × WASM</title>
 <style>
 :root{color-scheme:dark;--bg:#10141e;--panel:#171d2a;--muted:#98a8bf;--gold:#eac68d;--line:#343c4b;--mint:#88edcf}
 *{box-sizing:border-box}html,body{padding:0;margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);color:#f5f0e4}
@@ -45,6 +45,7 @@
 
 .panel-heading{display:flex;align-items:center;gap:12px;margin-bottom:25px}.logo{background:linear-gradient(130deg,#e9bd7a,#a66f45);color:#1d2126;border-radius:9px;padding:10px;font-size:22px;font-weight:900}.panel-heading strong{font-size:15px;letter-spacing:.06em}.panel-heading small{display:block;color:var(--muted);margin-top:3px;font-size:10px}
 .section{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:.2em;margin:24px 0 13px}.field{margin:14px 0}.field .line{display:flex;justify-content:space-between;align-items:baseline;font-size:12px}.field .line output{font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px}
+#sprite-set-status{max-width:78%;text-align:right;line-height:1.5;overflow-wrap:anywhere}
 input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointer}
 .switch{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:12px;border-bottom:1px solid #ffffff0c;cursor:pointer}.switch input{appearance:none;width:32px;height:18px;border-radius:20px;background:#414857;position:relative;margin:0}.switch input:checked{background:#bca072}.switch input:after{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;border-radius:50%;background:#f9faf9;transition:transform .15s}.switch input:checked:after{transform:translateX(14px)}
 .keycaps{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0 0}.keycaps kbd{min-width:28px;text-align:center;background:#252d3c;border:1px solid #40495a;padding:5px 6px;border-radius:5px;font-size:11px}.help{font-size:11px;line-height:1.7;color:var(--muted);margin:8px 0}
@@ -97,14 +98,14 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div id="room-wall-message" aria-live="off">壁です。別の方向へ移動できます</div>
   <button type="button" id="interact-btn" aria-label="玄関に入る・家から出る">E · 入る</button>
     <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="false">⚙ 設定を開く</button>
-    <div class="top"><small>XDIMENSION · THREE.JS × WASM · v0.0.16</small><h1>xDimension <span style="display:block;font-size:.6em;margin-top:4px;color:#eac68d">GAME ENGINE</span></h1><p>Three towns · interactive puzzles · connected worlds · WASM</p></div>
+    <div class="top"><small>XDIMENSION · THREE.JS × WASM · v0.0.18</small><h1>xDimension <span style="display:block;font-size:.6em;margin-top:4px;color:#eac68d">GAME ENGINE</span></h1><p>Three towns · interactive puzzles · connected worlds · WASM</p></div>
     <div id="notice">Three.jsをCDNから読み込んでいます。<br>インターネット接続が必要です。</div>
     <div id="pad" aria-label="移動コントローラー（常時表示）"><button class="pbtn" id="up" data-key="ArrowUp">▲</button><button class="pbtn" id="left" data-key="ArrowLeft">◀</button><button class="pbtn" id="right" data-key="ArrowRight">▶</button><button class="pbtn" id="down" data-key="ArrowDown">▼</button></div>
     <div id="actions" aria-label="アクション操作（常時表示）"><button type="button" class="actbtn" id="run-btn">RUN</button><button type="button" class="actbtn" id="jump-btn">JUMP</button><button type="button" class="actbtn" id="attack-btn">ATTACK</button></div>
     <div class="hud"><div class="status">● LIVE SIMULATION / <span id="backend-hud">INITIALIZING</span></div><div>座標 <b id="coords">0.00, 0.00, 3.50</b>　衝突 <b id="hits">0</b></div><div>WASM呼出 <span id="frames">0</span>　FPS <span id="fps">--</span></div><div>キャラ <b id="char-state">idle</b> · <b id="dir-state">right</b> <span id="surface-state">GROUND</span></div></div>
   </main>
   <aside id="panel" hidden aria-label="xDimension Game Engine 設定パネル">
-    <div class="panel-heading"><span class="logo">◈</span><div><strong>SCENE CONTROLS</strong><small>xDimension Game Engine / 0.0.15</small></div></div>
+    <div class="panel-heading"><span class="logo">◈</span><div><strong>SCENE CONTROLS</strong><small>xDimension Game Engine / 0.0.18</small></div></div>
     <div class="section">WORLD / 町と街道</div>
     <p class="help"><b>エリア移動（v0.0.13）:</b> 青葉の町の家と家の間（Z≈75）を右（D／▶）へ進み、石造りの東門をくぐると山岳街道へ。門前ではEキー／画面ボタンでも移動できます。橋を渡って東端へ進むと翠峰の町。西端へ戻れば逆方向に帰れます。3つのエリアはマップ単位で切り替わり、ゲーム内時間は共有します。</p>
     <p class="help">最初の「石畳の村」から南（S／↓）に出ると、こもれび街道を歩いて「青葉の町」へ到着します。ロード画面なしの連続マップです。道中の標識も目印になります。町内18軒は今までどおり入室できます。</p>
@@ -120,9 +121,9 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="field"><div class="line"><label for="indoor-window-light">窓の明るさ（室内）</label><output id="indoor-window-light-out">35%</output></div><input id="indoor-window-light" type="range" min="0" max="100" step="5" value="35"></div>
     <p class="help">窓2つの発光は別に調整できます。家具の描画寸法と当たり判定は共通化しています。</p>
     <div class="section">SPRITES / キャラクター素材</div>
-    <div class="field"><div class="line"><label for="sprite-set">使用素材</label><output id="sprite-set-status">Haruka</output></div>
+    <div class="field"><div class="line"><label for="sprite-set">使用素材</label><output id="sprite-set-status">ゲーム内の画像は haruka_apps さんにお借りしてます。</output></div>
       <select id="sprite-set" class="tuning-select" aria-label="キャラクター素材を選択">
-      <option value="haruka" selected>haruka_apps（新画像・高解像度）</option>
+      <option value="haruka" selected>新画像・高解像度</option>
       <option value="legacy">オリジナル（旧画像）</option></select></div>
     <label class="switch">Pixel Art / ドット絵表示（OFF＝高精細） <input id="pixels" type="checkbox"></label>
     <div class="field"><div class="line"><label for="pixel-resolution">Pixel Art 処理解像度</label><output id="pixel-resolution-out">160 × 160 px</output></div>
@@ -133,8 +134,8 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="field"><div class="line"><label for="char-preview">アニメーション</label><output id="char-frame">idle 1/25</output></div>
       <select id="char-preview" aria-label="アニメーションを試す" style="width:100%;margin-top:8px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;padding:7px">
       <option value="auto">自動（操作に連動）</option><option value="idle">待機</option><option value="walk">歩行</option><option value="run">走行</option><option value="jump">ジャンプ</option><option value="attack">剣攻撃</option></select></div>
-    <div class="field"><div class="line"><label for="char-size">キャラクター全体の大きさ</label><output id="char-size-out">70%</output></div><input id="char-size" type="range" min="65" max="150" step="5" value="70"></div>
-    <p class="help">全体倍率の初期値は<b>70%</b>です（玄関との比率に合わせた設定）。新旧の素材とも使用する5動作のみを読み込み、未使用の30動作は含めません。<b>身体の基準身長と足元を統一</b>して表示します。専用の正面・背面画像がない場合、カメラから見た移動方向に合わせて横向き画像を左右反転します。正面・背面は assets/characters/ に追加できます。</p>
+    <div class="field"><div class="line"><label for="char-size">キャラクター全体の大きさ</label><output id="char-size-out">55%</output></div><input id="char-size" type="range" min="25" max="150" step="5" value="55"></div>
+    <p class="help">全体倍率の初期値は<b>55%</b>です（町のNPCとの比率を合わせやすくする設定）。<b>25〜150%</b>の範囲で5%刻みで調整できます。新旧の素材とも使用する5動作のみを読み込み、未使用の30動作は含めません。<b>身体の基準身長と足元を統一</b>して表示します。専用の正面・背面画像がない場合、カメラから見た移動方向に合わせて横向き画像を左右反転します。正面・背面は assets/characters/ に追加できます。</p>
     <details class="tuning-group" open>
       <summary>SPRITE CALIBRATION / 個別調整</summary>
       <p class="tune-small">ここでアニメーションを選ぶとプレビューします。設定を閉じるか移動・攻撃すると通常操作に戻ります。剣やジャンプの広がりに合わせて身体の大きさと足元を微調整できます。</p>
@@ -941,7 +942,8 @@ sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-30;sun.shadow.camera.r
 // The sprite bundle is generated at build time and embedded in index.html.
 const SPRITE_BUNDLES={{SPRITE_BUNDLES}};
 const ACTIONS=['idle','walk','run','jump','attack'];
-const SPRITE_SET_LABELS={haruka:'haruka_apps（新画像）',legacy:'オリジナル（旧画像）'};
+const SPRITE_SET_LABELS={haruka:'Haruka（新画像）',legacy:'オリジナル（旧画像）'};
+const SPRITE_SET_CREDITS={haruka:'ゲーム内の画像は haruka_apps さんにお借りしてます。',legacy:'オリジナル（旧画像）'};
 let currentSpriteSet='haruka';
 try{const previous=localStorage.getItem('xdimension-v15-sprite-set');if(SPRITE_BUNDLES[previous])currentSpriteSet=previous;}catch{}
 $('sprite-set').value=currentSpriteSet;
@@ -1348,7 +1350,7 @@ function refreshSpriteInfo(){
   const processed=pixelDisplay?`${pixelResolution} × ${pixelResolution} px`:`${atlasWidth} × ${atlasHeight} px`;
   const packBytes=Object.values(activeSpriteBundle.actions).reduce((sum,act)=>sum+Object.keys(act.directions).length*packed.width*packed.height*25*4,0);
   const currentWebp=cfg.compressedBytes||0;
-  $('sprite-set-status').textContent=SPRITE_SET_LABELS[currentSpriteSet];
+  $('sprite-set-status').textContent=SPRITE_SET_CREDITS[currentSpriteSet];
   $('pixel-resolution-out').textContent=`${pixelResolution} × ${pixelResolution} px`;
   $('pixel-resolution').disabled=!pixelDisplay;
   $('sprite-quality-status').textContent=pixelDisplay?`画像品質：Pixel Art ${pixelResolution}px（Nearest拡大）`:`画像品質：高精細（${atlasWidth}pxの描画キャンバス）`;

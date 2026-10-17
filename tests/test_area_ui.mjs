@@ -29,7 +29,7 @@ assert(source.includes("id=\"test-east-gate\""));
 assert(source.includes("$('test-east-gate').addEventListener('click'"));
 assert.equal(findPortal(0,20.6,78.5,data.portals),null);
 assert.equal(findPortal(0,20.6,75.0,data.portals)?.to,1);
-assert(html.includes('xDimension Game Engine v0.0.16'));
+assert(html.includes('xDimension Game Engine v0.0.18'));
 assert(!html.includes('{{AREA_MAPS_DATA}}'));
 assert(!html.includes('{{AREA_MAPS_SOURCE}}'));
 assert(html.includes('山岳街道 →'));

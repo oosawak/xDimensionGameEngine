@@ -35,10 +35,10 @@ for(const [name, access, direction] of [
 }
 // Script should retain reduced *global* default without changing animation calibration.
 const template=fs.readFileSync(new URL('../index.template.html',import.meta.url),'utf8');
-assert.match(template,/id="char-size-out">70%/);
-assert.match(template,/<input id="char-size"[^>]*value="70"/);
+assert.match(template,/id="char-size-out">55%/);
+assert.match(template,/<input id="char-size"[^>]*min="25"[^>]*max="150"[^>]*step="5"[^>]*value="55"/);
 assert.match(template,/xDimension Game Engine \/ 0\.0\.\d+/);
 assert.match(template,/accessSideWalls\(access,deck\.height,1\)/);
 assert.match(template,/accessSideWalls\(upperAccess,upperDeck\.height,-1\)/);
 assert.match(template,/for\(const access of \[collisionWorld\.elevation\.access,collisionWorld\.upperVillage\.access\]\)/);
-console.log('PASS: current version label, 70% global size, visible stair edging & debug guides');
+console.log('PASS: current version label, 55% global size, visible stair edging & debug guides');
