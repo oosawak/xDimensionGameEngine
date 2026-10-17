@@ -122,7 +122,7 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="section">SPRITES / キャラクター素材</div>
     <div class="field"><div class="line"><label for="sprite-set">使用素材</label><output id="sprite-set-status">Haruka</output></div>
       <select id="sprite-set" class="tuning-select" aria-label="キャラクター素材を選択">
-      <option value="haruka" selected>Haruka（新画像・高解像度）</option>
+      <option value="haruka" selected>haruka_apps（新画像・高解像度）</option>
       <option value="legacy">オリジナル（旧画像）</option></select></div>
     <label class="switch">Pixel Art / ドット絵表示（OFF＝高精細） <input id="pixels" type="checkbox"></label>
     <div class="field"><div class="line"><label for="pixel-resolution">Pixel Art 処理解像度</label><output id="pixel-resolution-out">160 × 160 px</output></div>
@@ -941,7 +941,7 @@ sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-30;sun.shadow.camera.r
 // The sprite bundle is generated at build time and embedded in index.html.
 const SPRITE_BUNDLES={{SPRITE_BUNDLES}};
 const ACTIONS=['idle','walk','run','jump','attack'];
-const SPRITE_SET_LABELS={haruka:'Haruka（新画像）',legacy:'オリジナル（旧画像）'};
+const SPRITE_SET_LABELS={haruka:'haruka_apps（新画像）',legacy:'オリジナル（旧画像）'};
 let currentSpriteSet='haruka';
 try{const previous=localStorage.getItem('xdimension-v15-sprite-set');if(SPRITE_BUNDLES[previous])currentSpriteSet=previous;}catch{}
 $('sprite-set').value=currentSpriteSet;
