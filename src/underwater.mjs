@@ -14,17 +14,22 @@ export function createSwim2D(options = {}) {
     maxSpeed: options.maxSpeed ?? 7,
     acceleration: options.acceleration ?? 22,
     drag: options.drag ?? 3.8,
+    speedMultiplier: 1,
     depthMin: options.depthMin ?? -1,
     depthMax: options.depthMax ?? 240
   };
   return {
     state,
+    setSpeedMultiplier(value){
+      state.speedMultiplier=Number.isFinite(value)?Math.max(.75,Math.min(2.5,value)):1;
+      return state.speedMultiplier;
+    },
     step(input = {}, dt = 0) {
       let dx = Number.isFinite(input.axisX) ? input.axisX : (input.right ? 1 : 0) - (input.left ? 1 : 0);
       let dy = Number.isFinite(input.axisY) ? input.axisY : (input.down ? 1 : 0) - (input.up ? 1 : 0);
       const inputLength=Math.hypot(dx,dy);
       if(inputLength>1){dx/=inputLength;dy/=inputLength;}
-      const boost = input.boost ? 1.45 : 1;
+      const boost = (input.boost ? 1.45 : 1) * state.speedMultiplier;
       state.vx += dx * state.acceleration * boost * dt;
       state.vy += dy * state.acceleration * boost * dt;
       const damping = Math.exp(-state.drag * dt);
@@ -90,7 +95,12 @@ export function createFishShooter({capacity=12, speed=22, range=20, cooldown=.3}
           if(distance<=travel&&distance<nearestDistance){nearest=target;nearestDistance=distance;}
         }
         shot.x+=shot.dx*travel;shot.y+=shot.dy*travel;shot.remaining-=travel;
-        if(nearest){nearest.captured=true;caught++;hits.push(nearest);shot.active=false;}
+        if(nearest){
+          nearest.maxHp??=3;
+          nearest.hp=Math.max(0,(nearest.hp??nearest.maxHp)-1);
+          if(nearest.hp===0){nearest.captured=true;caught++;}
+          hits.push(nearest);shot.active=false;
+        }
         else if(shot.remaining<=0)shot.active=false;
       }
       return hits;
@@ -100,7 +110,7 @@ export function createFishShooter({capacity=12, speed=22, range=20, cooldown=.3}
 }
 
 /** Only active fish in the swim plane are eligible; scenery fish stay decorative. */
-export function nearestShootableFish(x,y,targets,range=8){
+export function nearestShootableFish(x,y,targets,range=3.5){
   let nearest=null,distanceSquared=range*range;
   for(const target of targets){
     if(target.captured)continue;

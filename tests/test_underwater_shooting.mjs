@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import {createFishShooter,nearestShootableFish} from '../src/underwater.mjs';
 
 const shooter=createFishShooter();
-const far={x:4,y:0,radius:.4},near={x:2,y:0,radius:.4};
+const far={x:4,y:0,radius:.4,maxHp:1},near={x:2,y:0,radius:.4,maxHp:1};
 assert(shooter.fire(0,0,1,0));assert(!shooter.fire(0,0,1,0),'cooldown prevents double fire');
 assert.deepEqual(shooter.step(.3,[far,near]),[near],'swept hit picks nearest fish, regardless of array order');
 assert.equal(far.captured,undefined);assert.equal(shooter.caught,1);
 assert(shooter.fire(0,0,1,0));assert.deepEqual(shooter.step(.3,[near,far]),[far],'captured fish cannot be hit again');
 assert.equal(shooter.caught,2);
 assert(shooter.fire(0,0,0,-1));
-const lower={x:0,y:-3,radius:.4};assert.deepEqual(shooter.step(.3,[lower]),[lower]);
+const lower={x:0,y:-3,radius:.4,maxHp:1};assert.deepEqual(shooter.step(.3,[lower]),[lower]);
 shooter.clear();assert.equal(shooter.caught,3,'leaving water keeps caught count');
 assert(shooter.shots.every(s=>!s.active));
 assert(shooter.fire(0,0,-1,0));assert.deepEqual(shooter.step(2,[{x:1,y:0}]),[]);
@@ -19,4 +19,16 @@ assert(limited.fire(0,0,1,0));assert(!limited.fire(0,0,1,0),'pool never grows');
 const eligible={x:3,y:0},outside={x:9,y:0},caught={x:1,y:0,captured:true};
 assert.equal(nearestShootableFish(0,0,[outside,caught,eligible]),eligible);
 assert.equal(nearestShootableFish(0,0,[outside,caught]),null,'out-of-range and captured fish are ignored');
+assert.equal(nearestShootableFish(0,0,[{x:4,y:0}]),null,'fish at the old medium distance no longer trigger firing');
+assert.equal(nearestShootableFish(0,0,[{x:3,y:3}]),null,'attack distance is radial, not a rectangular zone');
+const multi=createFishShooter({cooldown:0}),durable={x:2,y:0,hp:3,maxHp:3};
+for(let hit=1;hit<=3;hit++){
+  assert(multi.fire(0,0));assert.deepEqual(multi.step(.1,[durable]),[durable]);
+  assert.equal(durable.hp,3-hit);
+  assert.equal(multi.caught,hit===3?1:0,'only the final hit increases the capture counter');
+  assert.equal(Boolean(durable.captured),hit===3);
+  if(hit===1){multi.clear();assert.equal(durable.hp,2,'partial damage persists on leaving water');}
+}
+assert(multi.fire(0,0));assert.deepEqual(multi.step(.1,[durable]),[]);
+assert.equal(multi.caught,1,'captured fish cannot be counted twice');
 console.log('PASS: underwater firing, cooldown, nearest swept hit, vertical aim, capture persistence, range and pool limits');

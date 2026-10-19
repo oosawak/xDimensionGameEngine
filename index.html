@@ -138,6 +138,8 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="section">DEMO / 追加モード</div>
     <button type="button" class="btn" id="underwater-demo">◎ UNDERWATER DEMO / 水中探索を開始</button>
     <p class="help">海面から深海へ潜るPhase 1試作です。戦闘・酸素制限はありません。街の状態を保ったままいつでも戻れます。</p>
+    <div class="field"><div class="line"><label for="swim-speed">水中の移動速度</label><output id="swim-speed-out">100%</output></div><input id="swim-speed" type="range" min="75" max="250" step="5" value="100"></div>
+    <p class="help">75〜250%で上下・左右の泳ぐ速さを調整できます。設定はこのブラウザに保存されます。RUNでさらに加速できます。</p>
     <div class="section">WORLD / 町と街道</div>
     <p class="help"><b>エリア移動（v0.0.13）:</b> 青葉の町の家と家の間（Z≈75）を右（D／▶）へ進み、石造りの東門をくぐると山岳街道へ。門前ではEキー／画面ボタンでも移動できます。橋を渡って東端へ進むと翠峰の町。西端へ戻れば逆方向に帰れます。3つのエリアはマップ単位で切り替わり、ゲーム内時間は共有します。</p>
     <p class="help">最初の「石畳の村」から南（S／↓）に出ると、こもれび街道を歩いて「青葉の町」へ到着します。ロード画面なしの連続マップです。道中の標識も目印になります。町内18軒は今までどおり入室できます。</p>
@@ -368,17 +370,22 @@ function createSwim2D(options = {}) {
     maxSpeed: options.maxSpeed ?? 7,
     acceleration: options.acceleration ?? 22,
     drag: options.drag ?? 3.8,
+    speedMultiplier: 1,
     depthMin: options.depthMin ?? -1,
     depthMax: options.depthMax ?? 240
   };
   return {
     state,
+    setSpeedMultiplier(value){
+      state.speedMultiplier=Number.isFinite(value)?Math.max(.75,Math.min(2.5,value)):1;
+      return state.speedMultiplier;
+    },
     step(input = {}, dt = 0) {
       let dx = Number.isFinite(input.axisX) ? input.axisX : (input.right ? 1 : 0) - (input.left ? 1 : 0);
       let dy = Number.isFinite(input.axisY) ? input.axisY : (input.down ? 1 : 0) - (input.up ? 1 : 0);
       const inputLength=Math.hypot(dx,dy);
       if(inputLength>1){dx/=inputLength;dy/=inputLength;}
-      const boost = input.boost ? 1.45 : 1;
+      const boost = (input.boost ? 1.45 : 1) * state.speedMultiplier;
       state.vx += dx * state.acceleration * boost * dt;
       state.vy += dy * state.acceleration * boost * dt;
       const damping = Math.exp(-state.drag * dt);
@@ -444,7 +451,12 @@ function createFishShooter({capacity=12, speed=22, range=20, cooldown=.3}={}) {
           if(distance<=travel&&distance<nearestDistance){nearest=target;nearestDistance=distance;}
         }
         shot.x+=shot.dx*travel;shot.y+=shot.dy*travel;shot.remaining-=travel;
-        if(nearest){nearest.captured=true;caught++;hits.push(nearest);shot.active=false;}
+        if(nearest){
+          nearest.maxHp??=3;
+          nearest.hp=Math.max(0,(nearest.hp??nearest.maxHp)-1);
+          if(nearest.hp===0){nearest.captured=true;caught++;}
+          hits.push(nearest);shot.active=false;
+        }
         else if(shot.remaining<=0)shot.active=false;
       }
       return hits;
@@ -454,7 +466,7 @@ function createFishShooter({capacity=12, speed=22, range=20, cooldown=.3}={}) {
 }
 
 /** Only active fish in the swim plane are eligible; scenery fish stay decorative. */
-function nearestShootableFish(x,y,targets,range=8){
+function nearestShootableFish(x,y,targets,range=3.5){
   let nearest=null,distanceSquared=range*range;
   for(const target of targets){
     if(target.captured)continue;
@@ -576,6 +588,9 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const fishMaterials=['#86bbad','#c8ad6f','#548d9a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.55}));
   const fish=[];
   const fishTargets=[];
+  const healthGeometry=new THREE.PlaneGeometry(1,1);
+  const healthBackground=new THREE.MeshBasicMaterial({color:'#172d34',depthWrite:false});
+  const healthFill=new THREE.MeshBasicMaterial({color:'#efbe66',depthWrite:false});
   const catchableMat=new THREE.MeshStandardMaterial({color:'#e9b55c',emissive:'#60421b',emissiveIntensity:.35,roughness:.5});
   for(let i=0;i<(compact?24:42);i++) {
     const catchable=i<12;
@@ -585,8 +600,12 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
     f.userData={x:-28+(i*13)%56,y:-4-(i*7)%61,z:-5-(i%4)*3,phase:i*.71};root.add(f);fish.push(f);
     if(catchable){
       Object.assign(f.userData,{x:(i%2?-1:1)*(4+i%3),y:.6-i*5.7,z:.75});
-      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false};
+      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false,hp:3,maxHp:3,hitAt:-1000};
       f.userData.target=target;f.scale.setScalar(1.35);fishTargets.push(target);
+      const bar=new THREE.Group();root.add(bar);
+      const background=new THREE.Mesh(healthGeometry,healthBackground);background.scale.set(1.35,.2,1);bar.add(background);
+      const fill=new THREE.Mesh(healthGeometry,healthFill);fill.scale.set(1.2,.1,1);fill.position.z=.01;bar.add(fill);
+      f.userData.healthBar={bar,fill};
     }
   }
   // A fixed instance pool rises through the water; no per-frame allocations.
@@ -611,7 +630,14 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
       const d=f.userData;f.visible=!d.target?.captured;
       f.position.set(d.x+Math.sin(time*.18+d.phase)*(d.target?1.5:6),d.y+Math.sin(time*.9+d.phase)*.3,d.z);
       f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;
-      if(d.target){d.target.x=f.position.x;d.target.y=f.position.y;}
+      if(d.target){
+        d.target.x=f.position.x;d.target.y=f.position.y;
+        const flash=Math.max(0,1-(time-d.target.hitAt)/.25);f.scale.setScalar(1.35+flash*.18);
+        const {bar,fill}=d.healthBar;
+        bar.visible=!d.target.captured&&(d.target.hp<d.target.maxHp||Math.hypot(d.target.x-x,d.target.y-worldY(depth))<6);
+        bar.position.set(f.position.x,f.position.y+.7,1);
+        const ratio=d.target.hp/d.target.maxHp;fill.scale.x=1.2*ratio;fill.position.x=-.6+.6*ratio;
+      }
     });
     for(let i=0;i<bubbleCount;i++){
       const by=-72+((i*13.23+time*(.5+i%4*.18))%74);
@@ -1818,6 +1844,21 @@ heroShadow.rotation.x=-Math.PI/2;heroShadow.position.set(0,.07,3.5);scene.add(he
 // Phase 1: a self-contained side-view swim world. It deliberately lives beside
 // the land scene, so the existing WASM ABI and town maps remain unchanged.
 const swim2d=Underwater.createSwim2D({depthMax:240,verticalSpeedMultiplier:1.6});
+const SWIM_SPEED_KEY='xdimension-underwater-swim-speed';
+function applySwimSpeed(value){
+  const multiplier=swim2d.setSpeedMultiplier(value/100);
+  const percent=Math.round(multiplier*100);
+  $('swim-speed').value=String(percent);$('swim-speed-out').textContent=percent+'%';
+  return percent;
+}
+try{
+  const saved=localStorage.getItem(SWIM_SPEED_KEY);
+  applySwimSpeed(saved===null?100:Number(saved));
+}catch{applySwimSpeed(100);}
+$('swim-speed').addEventListener('input',e=>{
+  const percent=applySwimSpeed(Number(e.target.value));
+  try{localStorage.setItem(SWIM_SPEED_KEY,String(percent));}catch{}
+});
 const fishShooter=Underwater.createFishShooter({cooldown:.7,range:10});
 const underwaterRoot=new THREE.Group();underwaterRoot.name='Underwater demo';underwaterRoot.visible=false;scene.add(underwaterRoot);
 // Built on first entry so the land demo does not allocate underwater resources.
@@ -1956,11 +1997,14 @@ function stepUnderwater(dt){
   underwaterItems.forEach(item=>{item.rotation.y=animationTime*.6;});
   setUnderwaterLighting();
   const originY=y+.65;
-  const aim=Underwater.nearestShootableFish(state.x,originY,underwaterWorld.fishTargets,8);
+  const aim=Underwater.nearestShootableFish(state.x,originY,underwaterWorld.fishTargets);
   if(aim)fishShooter.fire(state.x,originY,aim.x-state.x,aim.y-originY);
   const hits=fishShooter.step(dt,underwaterWorld.fishTargets);
   if(hits.length){
-    const hit=hits.at(-1);underwaterFeedback=`魚を捕獲！ ${fishShooter.caught}匹`;
+    hits.forEach(hit=>{hit.hitAt=animationTime;});
+    const hit=hits.at(-1);
+    underwaterFeedback=hit.captured?`魚を捕獲！ ${fishShooter.caught}匹`:`命中！ 捕獲まであと${hit.hp}発`;
+    underwaterCaptureRing.material.color.set(hit.captured?'#ffe6a3':'#b9fff2');
     underwaterHintUntil=animationTime+2;underwaterCaptureTime=animationTime;
     underwaterCaptureRing.position.set(hit.x,hit.y,1);underwaterCaptureRing.visible=true;
   }

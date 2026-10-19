@@ -107,6 +107,9 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const fishMaterials=['#86bbad','#c8ad6f','#548d9a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.55}));
   const fish=[];
   const fishTargets=[];
+  const healthGeometry=new THREE.PlaneGeometry(1,1);
+  const healthBackground=new THREE.MeshBasicMaterial({color:'#172d34',depthWrite:false});
+  const healthFill=new THREE.MeshBasicMaterial({color:'#efbe66',depthWrite:false});
   const catchableMat=new THREE.MeshStandardMaterial({color:'#e9b55c',emissive:'#60421b',emissiveIntensity:.35,roughness:.5});
   for(let i=0;i<(compact?24:42);i++) {
     const catchable=i<12;
@@ -116,8 +119,12 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
     f.userData={x:-28+(i*13)%56,y:-4-(i*7)%61,z:-5-(i%4)*3,phase:i*.71};root.add(f);fish.push(f);
     if(catchable){
       Object.assign(f.userData,{x:(i%2?-1:1)*(4+i%3),y:.6-i*5.7,z:.75});
-      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false};
+      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false,hp:3,maxHp:3,hitAt:-1000};
       f.userData.target=target;f.scale.setScalar(1.35);fishTargets.push(target);
+      const bar=new THREE.Group();root.add(bar);
+      const background=new THREE.Mesh(healthGeometry,healthBackground);background.scale.set(1.35,.2,1);bar.add(background);
+      const fill=new THREE.Mesh(healthGeometry,healthFill);fill.scale.set(1.2,.1,1);fill.position.z=.01;bar.add(fill);
+      f.userData.healthBar={bar,fill};
     }
   }
   // A fixed instance pool rises through the water; no per-frame allocations.
@@ -142,7 +149,14 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
       const d=f.userData;f.visible=!d.target?.captured;
       f.position.set(d.x+Math.sin(time*.18+d.phase)*(d.target?1.5:6),d.y+Math.sin(time*.9+d.phase)*.3,d.z);
       f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;
-      if(d.target){d.target.x=f.position.x;d.target.y=f.position.y;}
+      if(d.target){
+        d.target.x=f.position.x;d.target.y=f.position.y;
+        const flash=Math.max(0,1-(time-d.target.hitAt)/.25);f.scale.setScalar(1.35+flash*.18);
+        const {bar,fill}=d.healthBar;
+        bar.visible=!d.target.captured&&(d.target.hp<d.target.maxHp||Math.hypot(d.target.x-x,d.target.y-worldY(depth))<6);
+        bar.position.set(f.position.x,f.position.y+.7,1);
+        const ratio=d.target.hp/d.target.maxHp;fill.scale.x=1.2*ratio;fill.position.x=-.6+.6*ratio;
+      }
     });
     for(let i=0;i<bubbleCount;i++){
       const by=-72+((i*13.23+time*(.5+i%4*.18))%74);

@@ -138,6 +138,8 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="section">DEMO / 追加モード</div>
     <button type="button" class="btn" id="underwater-demo">◎ UNDERWATER DEMO / 水中探索を開始</button>
     <p class="help">海面から深海へ潜るPhase 1試作です。戦闘・酸素制限はありません。街の状態を保ったままいつでも戻れます。</p>
+    <div class="field"><div class="line"><label for="swim-speed">水中の移動速度</label><output id="swim-speed-out">100%</output></div><input id="swim-speed" type="range" min="75" max="250" step="5" value="100"></div>
+    <p class="help">75〜250%で上下・左右の泳ぐ速さを調整できます。設定はこのブラウザに保存されます。RUNでさらに加速できます。</p>
     <div class="section">WORLD / 町と街道</div>
     <p class="help"><b>エリア移動（v0.0.13）:</b> 青葉の町の家と家の間（Z≈75）を右（D／▶）へ進み、石造りの東門をくぐると山岳街道へ。門前ではEキー／画面ボタンでも移動できます。橋を渡って東端へ進むと翠峰の町。西端へ戻れば逆方向に帰れます。3つのエリアはマップ単位で切り替わり、ゲーム内時間は共有します。</p>
     <p class="help">最初の「石畳の村」から南（S／↓）に出ると、こもれび街道を歩いて「青葉の町」へ到着します。ロード画面なしの連続マップです。道中の標識も目印になります。町内18軒は今までどおり入室できます。</p>
@@ -1195,6 +1197,21 @@ heroShadow.rotation.x=-Math.PI/2;heroShadow.position.set(0,.07,3.5);scene.add(he
 // Phase 1: a self-contained side-view swim world. It deliberately lives beside
 // the land scene, so the existing WASM ABI and town maps remain unchanged.
 const swim2d=Underwater.createSwim2D({depthMax:240,verticalSpeedMultiplier:1.6});
+const SWIM_SPEED_KEY='xdimension-underwater-swim-speed';
+function applySwimSpeed(value){
+  const multiplier=swim2d.setSpeedMultiplier(value/100);
+  const percent=Math.round(multiplier*100);
+  $('swim-speed').value=String(percent);$('swim-speed-out').textContent=percent+'%';
+  return percent;
+}
+try{
+  const saved=localStorage.getItem(SWIM_SPEED_KEY);
+  applySwimSpeed(saved===null?100:Number(saved));
+}catch{applySwimSpeed(100);}
+$('swim-speed').addEventListener('input',e=>{
+  const percent=applySwimSpeed(Number(e.target.value));
+  try{localStorage.setItem(SWIM_SPEED_KEY,String(percent));}catch{}
+});
 const fishShooter=Underwater.createFishShooter({cooldown:.7,range:10});
 const underwaterRoot=new THREE.Group();underwaterRoot.name='Underwater demo';underwaterRoot.visible=false;scene.add(underwaterRoot);
 // Built on first entry so the land demo does not allocate underwater resources.
@@ -1333,11 +1350,14 @@ function stepUnderwater(dt){
   underwaterItems.forEach(item=>{item.rotation.y=animationTime*.6;});
   setUnderwaterLighting();
   const originY=y+.65;
-  const aim=Underwater.nearestShootableFish(state.x,originY,underwaterWorld.fishTargets,8);
+  const aim=Underwater.nearestShootableFish(state.x,originY,underwaterWorld.fishTargets);
   if(aim)fishShooter.fire(state.x,originY,aim.x-state.x,aim.y-originY);
   const hits=fishShooter.step(dt,underwaterWorld.fishTargets);
   if(hits.length){
-    const hit=hits.at(-1);underwaterFeedback=`魚を捕獲！ ${fishShooter.caught}匹`;
+    hits.forEach(hit=>{hit.hitAt=animationTime;});
+    const hit=hits.at(-1);
+    underwaterFeedback=hit.captured?`魚を捕獲！ ${fishShooter.caught}匹`:`命中！ 捕獲まであと${hit.hp}発`;
+    underwaterCaptureRing.material.color.set(hit.captured?'#ffe6a3':'#b9fff2');
     underwaterHintUntil=animationTime+2;underwaterCaptureTime=animationTime;
     underwaterCaptureRing.position.set(hit.x,hit.y,1);underwaterCaptureRing.visible=true;
   }
