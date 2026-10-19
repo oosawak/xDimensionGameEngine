@@ -1210,11 +1210,19 @@ for(let i=0;i<70;i++){
   bubble.position.set(((i*47)%50)-25,5-((i*31)%238)*.05,.35+(i%5)*.06);bubble.userData={baseY:bubble.position.y,phase:i*.71};underwaterRoot.add(bubble);underwaterBubbles.push(bubble);
 }
 let underwaterMode=false,underwaterLightOn=true,underwaterLandVisibility=new Map();
+let underwaterHintUntil=0;
 function updateUnderwaterHUD(){
   const depth=Math.round(swim2d.state.depth);
   $('underwater-depth').textContent=`深度 ${depth}m`;
   $('underwater-items').textContent=`採集 ${underwaterItems.filter(i=>i.userData.got).length} / ${underwaterItems.length}`;
   $('underwater-light').textContent=underwaterLightOn?'ON':'OFF';
+  const nearest=underwaterItems.filter(i=>!i.userData.got).sort((a,b)=>Math.abs(a.userData.x-swim2d.state.x)+Math.abs(a.userData.depth-swim2d.state.depth)-Math.abs(b.userData.x-swim2d.state.x)-Math.abs(b.userData.depth-swim2d.state.depth))[0];
+  const canCollect=Boolean(nearest&&Math.abs(nearest.userData.x-swim2d.state.x)<1.25&&Math.abs(nearest.userData.depth-swim2d.state.depth)<14);
+  $('interact-btn').classList.toggle('active',underwaterMode&&canCollect);
+  $('interact-btn').textContent='E · 採集';
+  $('door-prompt').classList.toggle('active',underwaterMode&&canCollect);
+  $('door-prompt').textContent=canCollect?'発光アイテム：Eキー／INTERACTで採集':'';
+  $('underwater-hint').textContent=underwaterHintUntil>animationTime?'採集しました。さらに深く探索できます':'W/S：潜降・浮上　A/D：遊泳　E：採集　F：ライト';
   $('coords').textContent=`${swim2d.state.x.toFixed(2)}, ${(-swim2d.state.depth).toFixed(2)}, 0.00`;
   $('surface-state').textContent='SWIM 2D';$('char-state').textContent='swim';
 }
@@ -1232,7 +1240,7 @@ function enterUnderwater(){
   for(const child of scene.children)child.visible=child===underwaterRoot;
   underwaterRoot.visible=true;hero.visible=true;heroShadow.visible=false;underwaterMode=true;
   swim2d.reset(0,0);inputs.clear();underwaterItems.forEach(i=>{i.userData.got=false;i.visible=true;});
-  $('underwater-hud').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
+  $('underwater-hud').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('jump-btn').style.display='none';$('attack-btn').style.display='none';$('interact-btn').classList.remove('active');$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
   $('panel').hidden=true;$('panel-toggle').setAttribute('aria-expanded','false');$('panel-toggle').textContent='⚙ 設定を開く';
   $('region-name').textContent='水中探索';$('trail-guide').textContent='海面から深海へ潜降できます';
   camera.fov=48;camera.updateProjectionMatrix();setUnderwaterLighting();updateUnderwaterHUD();
@@ -1241,13 +1249,13 @@ function exitUnderwater(){
   if(!underwaterMode)return;
   underwaterMode=false;for(const [child,visible] of underwaterLandVisibility)child.visible=visible;
   underwaterRoot.visible=false;hero.visible=true;heroShadow.visible=true;
-  $('underwater-hud').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
+  $('underwater-hud').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('jump-btn').style.display='block';$('attack-btn').style.display='block';$('interact-btn').classList.remove('active');$('door-prompt').classList.remove('active');$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
   scene.background.set('#8e9cb0');scene.fog.color.set('#8e9cb0');scene.fog.density=.021;
   camera.fov=41;camera.updateProjectionMatrix();changeArea(0,{x:0,z:3.5});
 }
 function underwaterInteract(){
   const nearest=underwaterItems.filter(i=>!i.userData.got).sort((a,b)=>a.position.distanceTo(hero.position)-b.position.distanceTo(hero.position))[0];
-  if(nearest && Math.abs(nearest.userData.x-swim2d.state.x)<1.25 && Math.abs(nearest.userData.depth-swim2d.state.depth)<14){nearest.userData.got=true;nearest.visible=false;updateUnderwaterHUD();}
+  if(nearest && Math.abs(nearest.userData.x-swim2d.state.x)<1.25 && Math.abs(nearest.userData.depth-swim2d.state.depth)<14){nearest.userData.got=true;nearest.visible=false;underwaterHintUntil=animationTime+2.2;updateUnderwaterHUD();}
 }
 function stepUnderwater(dt){
   const state=swim2d.step({left:inputs.has('a')||inputs.has('arrowleft'),right:inputs.has('d')||inputs.has('arrowright'),up:inputs.has('w')||inputs.has('arrowup'),down:inputs.has('s')||inputs.has('arrowdown'),boost:inputs.has('shift')||mobileRun},dt);
