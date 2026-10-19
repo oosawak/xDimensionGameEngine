@@ -295,6 +295,10 @@ const UnderwaterWorld=(()=>{
 {{UNDERWATER_WORLD_SOURCE}}
 return {createUnderwaterWorld};
 })();
+const SwimCollision=(()=>{
+{{SWIM_COLLISION_SOURCE}}
+return {createSwimMeshCollider};
+})();
 // Same collider source powers C-WASM, Rust-WASM, 3D scene and debug overlay.
 const collisionWorld={{COLLISION_WORLD}};
 const areaData={{AREA_MAPS_DATA}};
@@ -1248,6 +1252,8 @@ function prepareUnderwaterWorld(){
   if(underwaterWorld)return;
   underwaterWorld=UnderwaterWorld.createUnderwaterWorld(THREE,{compact:matchMedia('(max-width:700px)').matches});
   underwaterRoot.add(underwaterWorld.root);
+  const collides=SwimCollision.createSwimMeshCollider(THREE,underwaterWorld.solidMeshes);
+  swim2d.setCollisionQuery(collides);
   const shotGeometry=new THREE.SphereGeometry(.11,8,6);
   const shotMaterial=new THREE.MeshBasicMaterial({color:'#b9fff2'});
   const trailGeometry=new THREE.BoxGeometry(.65,.045,.045);
@@ -1263,7 +1269,9 @@ function prepareUnderwaterWorld(){
   const material=new THREE.MeshStandardMaterial({color:'#ffe6a3',emissive:'#e7a650',emissiveIntensity:1.8,roughness:.35});
   const geometry=new THREE.OctahedronGeometry(.3,0);
   for(let i=0;i<6;i++){
-    const depth=18+i*37,x=-15+(i*11)%30;
+    const depth=18+i*37;let x=-15+(i*11)%30;
+    // Keep collectible approach points outside newly solid reef meshes.
+    for(let attempt=0;attempt<32&&collides(x,depth);attempt++)x*=.8;
     const item=new THREE.Mesh(geometry,material);
     item.position.set(x,underwaterWorld.worldY(depth),.5);item.userData={depth,x,got:false};
     underwaterRoot.add(item);underwaterItems.push(item);

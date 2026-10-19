@@ -4,6 +4,7 @@
  */
 export function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const root = new THREE.Group();
+  const solidMeshes=[];
   root.name = 'Layered underwater reef';
   const worldY = depth => -depth * .28;
   const stone = new THREE.IcosahedronGeometry(1, 1);
@@ -37,15 +38,16 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
       const x=side*(11+Math.sin(level*1.8)*2);
       const ledge=mesh(stone,materials[level%3],x,y,-3,7,2.5,7);
       ledge.rotation.z=side*.12;
-      mesh(stone,sand,x,y+1.6,-2.5,5.5,.5,5);
+      const cap=mesh(stone,sand,x,y+1.6,-2.5,5.5,.5,5);
+      solidMeshes.push(ledge,cap);
       shelves.push({x,y:y+2,z:-1,level});
     }
   }
   const floorGeometry=new THREE.PlaneGeometry(130,90,44,30);
   floorGeometry.rotateX(-Math.PI/2);
   const fp=floorGeometry.attributes.position;
-  for(let i=0;i<fp.count;i++)fp.setY(i,-70+Math.sin(fp.getX(i)*.18)*1.2+Math.cos(fp.getZ(i)*.24)*.8);
-  floorGeometry.computeVertexNormals();mesh(floorGeometry,sand,0,0,-15);
+  for(let i=0;i<fp.count;i++)fp.setY(i,-65+Math.sin(fp.getX(i)*.18)*1.2+Math.cos(fp.getZ(i)*.24)*.8);
+  floorGeometry.computeVertexNormals();solidMeshes.push(mesh(floorGeometry,sand,0,0,-15));
   // Horizontal water surface seen from below, with an animated wave silhouette.
   const surfaceGeometry=new THREE.PlaneGeometry(150,110,48,30);surfaceGeometry.rotateX(-Math.PI/2);
   const surfaceMat=new THREE.MeshStandardMaterial({color:'#64d8d1',emissive:'#1a7f88',emissiveIntensity:.55,
@@ -139,7 +141,7 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const ambient=new THREE.HemisphereLight('#75d8df','#142e39',1.1);root.add(ambient);
   const sun=new THREE.DirectionalLight('#b7fff0',2.4);sun.position.set(-12,20,12);root.add(sun);
   const lamp=new THREE.PointLight('#b5ffff',6,12,1.6);root.add(lamp);
-  return {root, worldY, fishTargets, update(time,depth,x,lightOn){
+  return {root, worldY, fishTargets, solidMeshes, update(time,depth,x,lightOn){
     for(let i=0;i<surfacePositions.count;i++)surfacePositions.setY(i,Math.sin(surfacePositions.getX(i)*.3+time*.7)*.18+Math.sin(surfacePositions.getZ(i)*.4-time*.5)*.12);
     surfacePositions.needsUpdate=true;surfaceGeometry.computeVertexNormals();
     caustics.position.x=Math.sin(time*.18)*.8;causticMat.opacity=.055+Math.sin(time*.7)*.015;

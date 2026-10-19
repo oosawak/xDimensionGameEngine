@@ -362,6 +362,7 @@ const UNDERWATER_MODE = Object.freeze({
 });
 
 function createSwim2D(options = {}) {
+  let collisionQuery=null;
   const state = {
     x: options.x ?? 0,
     depth: options.depth ?? 0,
@@ -376,6 +377,7 @@ function createSwim2D(options = {}) {
   };
   return {
     state,
+    setCollisionQuery(query){collisionQuery=typeof query==='function'?query:null;},
     setSpeedMultiplier(value){
       state.speedMultiplier=Number.isFinite(value)?Math.max(.75,Math.min(2.5,value)):1;
       return state.speedMultiplier;
@@ -398,8 +400,14 @@ function createSwim2D(options = {}) {
         state.vx *= scale;
         state.vy *= scale;
       }
-      state.x += state.vx * dt;
-      state.depth = Math.max(state.depthMin, Math.min(state.depthMax, state.depth + state.vy * dt * (options.verticalSpeedMultiplier ?? 1)));
+      const nextX=state.x+state.vx*dt;
+      const nextDepth=Math.max(state.depthMin,Math.min(state.depthMax,state.depth+state.vy*dt*(options.verticalSpeedMultiplier??1)));
+      if(collisionQuery){
+        const moved=resolveSwimMotion(state.x,state.depth,nextX,nextDepth,collisionQuery);
+        state.x=moved.x;state.depth=moved.depth;
+        if(moved.blockedX)state.vx=0;
+        if(moved.blockedDepth)state.vy=0;
+      }else{state.x=nextX;state.depth=nextDepth;}
       if (state.depth === state.depthMin || state.depth === state.depthMax) state.vy = 0;
       return state;
     },
@@ -408,6 +416,19 @@ function createSwim2D(options = {}) {
       return state;
     }
   };
+}
+
+/** Substeps are measured in world units. Separating axes allows wall sliding.
+ * This pure movement boundary can be moved to a separate WASM ABI later. */
+function resolveSwimMotion(x,depth,nextX,nextDepth,collides){
+  const dx=nextX-x,dd=nextDepth-depth;
+  const count=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dd)*.28)/.1));
+  let blockedX=false,blockedDepth=false;
+  for(let i=0;i<count;i++){
+    if(!collides(x+dx/count,depth))x+=dx/count;else blockedX=true;
+    if(!collides(x,depth+dd/count))depth+=dd/count;else blockedDepth=true;
+  }
+  return {x,depth,blockedX,blockedDepth};
 }
 
 function underwaterPalette(depth) {
@@ -485,6 +506,7 @@ const UnderwaterWorld=(()=>{
  */
 function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const root = new THREE.Group();
+  const solidMeshes=[];
   root.name = 'Layered underwater reef';
   const worldY = depth => -depth * .28;
   const stone = new THREE.IcosahedronGeometry(1, 1);
@@ -518,15 +540,16 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
       const x=side*(11+Math.sin(level*1.8)*2);
       const ledge=mesh(stone,materials[level%3],x,y,-3,7,2.5,7);
       ledge.rotation.z=side*.12;
-      mesh(stone,sand,x,y+1.6,-2.5,5.5,.5,5);
+      const cap=mesh(stone,sand,x,y+1.6,-2.5,5.5,.5,5);
+      solidMeshes.push(ledge,cap);
       shelves.push({x,y:y+2,z:-1,level});
     }
   }
   const floorGeometry=new THREE.PlaneGeometry(130,90,44,30);
   floorGeometry.rotateX(-Math.PI/2);
   const fp=floorGeometry.attributes.position;
-  for(let i=0;i<fp.count;i++)fp.setY(i,-70+Math.sin(fp.getX(i)*.18)*1.2+Math.cos(fp.getZ(i)*.24)*.8);
-  floorGeometry.computeVertexNormals();mesh(floorGeometry,sand,0,0,-15);
+  for(let i=0;i<fp.count;i++)fp.setY(i,-65+Math.sin(fp.getX(i)*.18)*1.2+Math.cos(fp.getZ(i)*.24)*.8);
+  floorGeometry.computeVertexNormals();solidMeshes.push(mesh(floorGeometry,sand,0,0,-15));
   // Horizontal water surface seen from below, with an animated wave silhouette.
   const surfaceGeometry=new THREE.PlaneGeometry(150,110,48,30);surfaceGeometry.rotateX(-Math.PI/2);
   const surfaceMat=new THREE.MeshStandardMaterial({color:'#64d8d1',emissive:'#1a7f88',emissiveIntensity:.55,
@@ -620,7 +643,7 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const ambient=new THREE.HemisphereLight('#75d8df','#142e39',1.1);root.add(ambient);
   const sun=new THREE.DirectionalLight('#b7fff0',2.4);sun.position.set(-12,20,12);root.add(sun);
   const lamp=new THREE.PointLight('#b5ffff',6,12,1.6);root.add(lamp);
-  return {root, worldY, fishTargets, update(time,depth,x,lightOn){
+  return {root, worldY, fishTargets, solidMeshes, update(time,depth,x,lightOn){
     for(let i=0;i<surfacePositions.count;i++)surfacePositions.setY(i,Math.sin(surfacePositions.getX(i)*.3+time*.7)*.18+Math.sin(surfacePositions.getZ(i)*.4-time*.5)*.12);
     surfacePositions.needsUpdate=true;surfaceGeometry.computeVertexNormals();
     caustics.position.x=Math.sin(time*.18)*.8;causticMat.opacity=.055+Math.sin(time*.7)*.015;
@@ -651,6 +674,89 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
 }
 
 return {createUnderwaterWorld};
+})();
+const SwimCollision=(()=>{
+/** Static triangle-mesh collisions for a vertical capsule on the swim plane.
+ * No render-loop allocations; geometry is transformed and cached on map entry.
+ * C/Rust land physics is independent. Future WASM needs only cached triangles
+ * plus capsule coordinates, not Three.js objects or access to the scene.
+ */
+function sphereHitsTriangle(p,r,a,b,c){
+  const abx=b.x-a.x,aby=b.y-a.y,abz=b.z-a.z;
+  const acx=c.x-a.x,acy=c.y-a.y,acz=c.z-a.z;
+  const apx=p.x-a.x,apy=p.y-a.y,apz=p.z-a.z;
+  const d1=abx*apx+aby*apy+abz*apz,d2=acx*apx+acy*apy+acz*apz;
+  let qx,qy,qz;
+  if(d1<=0&&d2<=0){qx=a.x;qy=a.y;qz=a.z;}
+  else{
+    const bpx=p.x-b.x,bpy=p.y-b.y,bpz=p.z-b.z;
+    const d3=abx*bpx+aby*bpy+abz*bpz,d4=acx*bpx+acy*bpy+acz*bpz;
+    if(d3>=0&&d4<=d3){qx=b.x;qy=b.y;qz=b.z;}
+    else{
+      const vc=d1*d4-d3*d2;
+      if(vc<=0&&d1>=0&&d3<=0){const v=d1/(d1-d3);qx=a.x+v*abx;qy=a.y+v*aby;qz=a.z+v*abz;}
+      else{
+        const cpx=p.x-c.x,cpy=p.y-c.y,cpz=p.z-c.z;
+        const d5=abx*cpx+aby*cpy+abz*cpz,d6=acx*cpx+acy*cpy+acz*cpz;
+        if(d6>=0&&d5<=d6){qx=c.x;qy=c.y;qz=c.z;}
+        else{
+          const vb=d5*d2-d1*d6;
+          if(vb<=0&&d2>=0&&d6<=0){const w=d2/(d2-d6);qx=a.x+w*acx;qy=a.y+w*acy;qz=a.z+w*acz;}
+          else{
+            const va=d3*d6-d5*d4;
+            if(va<=0&&d4-d3>=0&&d5-d6>=0){
+              const w=(d4-d3)/((d4-d3)+(d5-d6));qx=b.x+w*(c.x-b.x);qy=b.y+w*(c.y-b.y);qz=b.z+w*(c.z-b.z);
+            }else{
+              const total=va+vb+vc;
+              if(Math.abs(total)<1e-15)return false; // zero-area faces carry no surface
+              const v=vb/total,w=vc/total;qx=a.x+abx*v+acx*w;qy=a.y+aby*v+acy*w;qz=a.z+abz*v+acz*w;
+            }
+          }
+        }
+      }
+    }
+  }
+  return (p.x-qx)**2+(p.y-qy)**2+(p.z-qz)**2<=r*r;
+}
+
+function createSwimTriangleCollider(groups,{z=.75,radius=.32}={}){
+  const point={x:0,y:0,z};const offsets=[.32,.72,1.12];
+  return (x,depth)=>{
+    const footY=-depth*.28;
+    for(const group of groups){
+      const b=group.bounds;
+      if(x+radius<b.minX||x-radius>b.maxX||footY+1.44<b.minY||footY>b.maxY||z+radius<b.minZ||z-radius>b.maxZ)continue;
+      point.x=x;
+      for(const offset of offsets){
+        point.y=footY+offset;
+        for(const triangle of group.triangles)if(sphereHitsTriangle(point,radius,triangle[0],triangle[1],triangle[2]))return true;
+      }
+    }
+    return false;
+  };
+}
+
+function createSwimMeshCollider(THREE,meshes){
+  const groups=[];
+  for(const mesh of meshes){
+    mesh.updateWorldMatrix(true,false);
+    const position=mesh.geometry.attributes.position,index=mesh.geometry.index;
+    const triangles=[],bounds=new THREE.Box3();
+    const count=index?index.count:position.count;
+    for(let i=0;i<count;i+=3){
+      const triangle=[];
+      for(let k=0;k<3;k++){
+        const vertex=new THREE.Vector3().fromBufferAttribute(position,index?index.getX(i+k):i+k).applyMatrix4(mesh.matrixWorld);
+        bounds.expandByPoint(vertex);triangle.push(vertex);
+      }
+      triangles.push(triangle);
+    }
+    groups.push({triangles,bounds:{minX:bounds.min.x,minY:bounds.min.y,minZ:bounds.min.z,maxX:bounds.max.x,maxY:bounds.max.y,maxZ:bounds.max.z}});
+  }
+  return createSwimTriangleCollider(groups);
+}
+
+return {createSwimMeshCollider};
 })();
 // Same collider source powers C-WASM, Rust-WASM, 3D scene and debug overlay.
 const collisionWorld={"revision":8,"playerRadius":0.68,"bounds":{"minX":-23.8,"maxX":23.8,"minZ":-18.5,"maxZ":100.0},"houses":[{"x":-6.8,"z":-6.3,"halfX":2.72,"halfZ":2.24},{"x":6.8,"z":-6.3,"halfX":2.72,"halfZ":2.24},{"x":-6.8,"z":6.3,"halfX":2.72,"halfZ":2.24},{"x":6.8,"z":6.3,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":-12.7,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":0.0,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":12.7,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":-12.7,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":0.0,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":12.7,"halfX":2.72,"halfZ":2.24},{"x":-6.0,"z":-15.4,"halfX":2.72,"halfZ":2.24,"elevation":1.6},{"x":6.0,"z":-15.4,"halfX":2.72,"halfZ":2.24,"elevation":1.6},{"x":-8.5,"z":68.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":68.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":-8.5,"z":78.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":78.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":-8.5,"z":88.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":88.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"}],"fountain":{"x":0.0,"z":-3.5,"radius":1.5},"trees":[{"x":-11.2,"z":-8.6,"radius":0.53},{"x":-11.7,"z":-1,"radius":0.53},{"x":-11.4,"z":8.4,"radius":0.53},{"x":-4.7,"z":9.3,"radius":0.53},{"x":11.2,"z":-8.6,"radius":0.53},{"x":11.7,"z":-1,"radius":0.53},{"x":11.4,"z":8.4,"radius":0.53},{"x":4.7,"z":9.3,"radius":0.53},{"x":-22.5,"z":-17.0,"radius":0.53},{"x":-22.5,"z":-5.8,"radius":0.53},{"x":-22.5,"z":5.8,"radius":0.53},{"x":-22.5,"z":17.0,"radius":0.53},{"x":22.5,"z":-17.0,"radius":0.53},{"x":22.5,"z":-5.8,"radius":0.53},{"x":22.5,"z":5.8,"radius":0.53},{"x":22.5,"z":17.0,"radius":0.53},{"x":-4.2,"z":15.8,"radius":0.53},{"x":4.2,"z":15.8,"radius":0.53},{"x":-17.5,"z":27,"radius":0.53},{"x":-12.7,"z":27,"radius":0.53},{"x":12.7,"z":27,"radius":0.53},{"x":17.5,"z":27,"radius":0.53},{"x":-17.5,"z":34,"radius":0.53},{"x":-12.7,"z":34,"radius":0.53},{"x":12.7,"z":34,"radius":0.53},{"x":17.5,"z":34,"radius":0.53},{"x":-17.5,"z":42,"radius":0.53},{"x":-12.7,"z":42,"radius":0.53},{"x":12.7,"z":42,"radius":0.53},{"x":17.5,"z":42,"radius":0.53},{"x":-17.5,"z":50,"radius":0.53},{"x":-12.7,"z":50,"radius":0.53},{"x":12.7,"z":50,"radius":0.53},{"x":17.5,"z":50,"radius":0.53},{"x":-17.5,"z":57,"radius":0.53},{"x":-12.7,"z":57,"radius":0.53},{"x":12.7,"z":57,"radius":0.53},{"x":17.5,"z":57,"radius":0.53},{"x":-18.0,"z":65,"radius":0.53},{"x":18.0,"z":65,"radius":0.53},{"x":-18.0,"z":73,"radius":0.53},{"x":-18.0,"z":81,"radius":0.53},{"x":18.0,"z":81,"radius":0.53},{"x":-18.0,"z":89,"radius":0.53},{"x":18.0,"z":89,"radius":0.53},{"x":-18.0,"z":95,"radius":0.53},{"x":18.0,"z":95,"radius":0.53},{"x":21.4,"z":67.5,"radius":0.53}],"elevation":{"deck":{"x":0.0,"halfX":2.2,"zMin":6.9,"zMax":9.5,"height":1.4},"access":{"x":0.0,"halfX":1.9,"zMin":4.1,"zMax":6.9,"height":1.4,"stairsFromX":0.2,"steps":9},"maxStepUp":0.24,"gravity":12.8,"jumpVelocity":5.0},"upperVillage":{"deck":{"x":0.0,"halfX":10.4,"zMin":-18.2,"zMax":-10.35,"height":1.6},"access":{"x":0.0,"halfX":1.7,"zMin":-10.35,"zMax":-7.05,"stairsFromX":0.0,"steps":12},"stairsDirection":"negativeZ"},"accessSideWalls":{"halfThickness":0.12,"endCap":0.06,"visualHeight":0.48,"description":"Both sides of each raised access lane are solid collision walls, independent of camera direction."},"regions":[{"id":"origin","name":"石畳の村","minZ":-18.5,"maxZ":20},{"id":"forest","name":"こもれび街道","minZ":20,"maxZ":63},{"id":"aoba","name":"青葉の町","minZ":63,"maxZ":100}],"trail":{"startZ":19,"endZ":63,"targetZ":78.5,"width":4.6},"southAccess":{"x":0.0,"halfX":1.92,"zMin":9.5,"zMax":12.8,"height":1.4,"steps":0}};
@@ -1895,6 +2001,8 @@ function prepareUnderwaterWorld(){
   if(underwaterWorld)return;
   underwaterWorld=UnderwaterWorld.createUnderwaterWorld(THREE,{compact:matchMedia('(max-width:700px)').matches});
   underwaterRoot.add(underwaterWorld.root);
+  const collides=SwimCollision.createSwimMeshCollider(THREE,underwaterWorld.solidMeshes);
+  swim2d.setCollisionQuery(collides);
   const shotGeometry=new THREE.SphereGeometry(.11,8,6);
   const shotMaterial=new THREE.MeshBasicMaterial({color:'#b9fff2'});
   const trailGeometry=new THREE.BoxGeometry(.65,.045,.045);
@@ -1910,7 +2018,9 @@ function prepareUnderwaterWorld(){
   const material=new THREE.MeshStandardMaterial({color:'#ffe6a3',emissive:'#e7a650',emissiveIntensity:1.8,roughness:.35});
   const geometry=new THREE.OctahedronGeometry(.3,0);
   for(let i=0;i<6;i++){
-    const depth=18+i*37,x=-15+(i*11)%30;
+    const depth=18+i*37;let x=-15+(i*11)%30;
+    // Keep collectible approach points outside newly solid reef meshes.
+    for(let attempt=0;attempt<32&&collides(x,depth);attempt++)x*=.8;
     const item=new THREE.Mesh(geometry,material);
     item.position.set(x,underwaterWorld.worldY(depth),.5);item.userData={depth,x,got:false};
     underwaterRoot.add(item);underwaterItems.push(item);

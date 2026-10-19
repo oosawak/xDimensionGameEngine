@@ -6,6 +6,7 @@ export const UNDERWATER_MODE = Object.freeze({
 });
 
 export function createSwim2D(options = {}) {
+  let collisionQuery=null;
   const state = {
     x: options.x ?? 0,
     depth: options.depth ?? 0,
@@ -20,6 +21,7 @@ export function createSwim2D(options = {}) {
   };
   return {
     state,
+    setCollisionQuery(query){collisionQuery=typeof query==='function'?query:null;},
     setSpeedMultiplier(value){
       state.speedMultiplier=Number.isFinite(value)?Math.max(.75,Math.min(2.5,value)):1;
       return state.speedMultiplier;
@@ -42,8 +44,14 @@ export function createSwim2D(options = {}) {
         state.vx *= scale;
         state.vy *= scale;
       }
-      state.x += state.vx * dt;
-      state.depth = Math.max(state.depthMin, Math.min(state.depthMax, state.depth + state.vy * dt * (options.verticalSpeedMultiplier ?? 1)));
+      const nextX=state.x+state.vx*dt;
+      const nextDepth=Math.max(state.depthMin,Math.min(state.depthMax,state.depth+state.vy*dt*(options.verticalSpeedMultiplier??1)));
+      if(collisionQuery){
+        const moved=resolveSwimMotion(state.x,state.depth,nextX,nextDepth,collisionQuery);
+        state.x=moved.x;state.depth=moved.depth;
+        if(moved.blockedX)state.vx=0;
+        if(moved.blockedDepth)state.vy=0;
+      }else{state.x=nextX;state.depth=nextDepth;}
       if (state.depth === state.depthMin || state.depth === state.depthMax) state.vy = 0;
       return state;
     },
@@ -52,6 +60,19 @@ export function createSwim2D(options = {}) {
       return state;
     }
   };
+}
+
+/** Substeps are measured in world units. Separating axes allows wall sliding.
+ * This pure movement boundary can be moved to a separate WASM ABI later. */
+export function resolveSwimMotion(x,depth,nextX,nextDepth,collides){
+  const dx=nextX-x,dd=nextDepth-depth;
+  const count=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dd)*.28)/.1));
+  let blockedX=false,blockedDepth=false;
+  for(let i=0;i<count;i++){
+    if(!collides(x+dx/count,depth))x+=dx/count;else blockedX=true;
+    if(!collides(x,depth+dd/count))depth+=dd/count;else blockedDepth=true;
+  }
+  return {x,depth,blockedX,blockedDepth};
 }
 
 export function underwaterPalette(depth) {
