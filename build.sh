@@ -37,16 +37,13 @@ case "$lang" in
    ;;
  *) echo '使い方: ./build.sh c | rust | assets' >&2; exit 2;;
 esac
-if ! python3 -c 'import PIL' 2>/dev/null; then
-  echo 'Pillow が必要です: python3 -m pip install pillow （Ubuntu: sudo apt install python3-pil）' >&2
-  exit 1
-fi
 for set in haruka legacy; do
   manifest="assets/sprites.json"
   if [[ "$set" == "legacy" ]]; then manifest="assets/legacy-sprites.json"; fi
   dest="assets/packed/$set"
   if [[ ! -f "$dest/index.json" ]] || \
      find assets/characters "$manifest" -type f -newer "$dest/index.json" 2>/dev/null | grep -q .; then
+    python3 -c 'import PIL' 2>/dev/null || { echo 'スプライト再生成にはPillowが必要です: python3 -m pip install pillow' >&2; exit 1; }
     python3 tools/pack_sprites.py --manifest "$manifest" --out "$dest"
   else
     echo "✓ ${set} 素材は既存シートを再利用"
@@ -82,6 +79,9 @@ text=text.replace('{{PARTICLE_SHAPES_SOURCE}}',particle_shape_source)
 particle_motion_source=(root/'src/particle-motion.mjs').read_text(encoding='utf-8').replace('export function ','function ').replace('export const ','const ')
 assert text.count('{{PARTICLE_MOTION_SOURCE}}')==1
 text=text.replace('{{PARTICLE_MOTION_SOURCE}}',particle_motion_source)
+underwater_source=(root/'src/underwater.mjs').read_text(encoding='utf-8').replace('export function ','function ').replace('export const ','const ')
+assert text.count('{{UNDERWATER_SOURCE}}')==1
+text=text.replace('{{UNDERWATER_SOURCE}}',underwater_source)
 bundles={set_name:json.loads((root/'assets/packed'/set_name/'index.json').read_text(encoding='utf-8')) for set_name in ('haruka','legacy')}
 world=json.loads((root/'assets/collision-world.json').read_text(encoding='utf-8'))
 area_maps=json.loads((root/'assets/area-maps.json').read_text(encoding='utf-8'))
