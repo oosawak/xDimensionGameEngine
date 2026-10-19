@@ -82,6 +82,9 @@ text=text.replace('{{PARTICLE_MOTION_SOURCE}}',particle_motion_source)
 underwater_source=(root/'src/underwater.mjs').read_text(encoding='utf-8').replace('export function ','function ').replace('export const ','const ')
 assert text.count('{{UNDERWATER_SOURCE}}')==1
 text=text.replace('{{UNDERWATER_SOURCE}}',underwater_source)
+underwater_world_source=(root/'src/underwater-world.mjs').read_text(encoding='utf-8').replace('export function ','function ')
+assert text.count('{{UNDERWATER_WORLD_SOURCE}}')==1
+text=text.replace('{{UNDERWATER_WORLD_SOURCE}}',underwater_world_source)
 bundles={set_name:json.loads((root/'assets/packed'/set_name/'index.json').read_text(encoding='utf-8')) for set_name in ('haruka','legacy')}
 world=json.loads((root/'assets/collision-world.json').read_text(encoding='utf-8'))
 area_maps=json.loads((root/'assets/area-maps.json').read_text(encoding='utf-8'))

@@ -91,6 +91,11 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
 #underwater-hud{display:none;position:absolute;z-index:6;left:16px;top:272px;padding:9px 12px;border:1px solid #7ee9e2a8;border-radius:10px;background:#062a39d9;color:#d9ffff;font-size:12px;line-height:1.55;pointer-events:none;box-shadow:0 3px 18px #001b2b99}
 #underwater-hud.active{display:block}#underwater-hud b{color:#8ff5df}#underwater-exit{display:none;position:absolute;z-index:13;right:16px;top:16px;padding:9px 13px;border-radius:10px;border:1px solid #8ee8e0;background:#073244e8;color:#dffffc;font-weight:800;cursor:pointer}
 #underwater-exit.active{display:block}
+#stage.underwater-active #underwater-exit{top:70px}
+#stage.underwater-active #world-clock-hud,#stage.underwater-active .top p{display:none}
+#stage.underwater-active #location-hud{max-width:240px}
+#stage.underwater-active #underwater-hud{top:180px;max-width:270px}
+#underwater-hud small{display:block;margin-top:4px}
 @media(max-width:520px){#underwater-hud{left:12px;top:252px;font-size:11px;padding:7px 9px}#underwater-exit{right:10px;top:10px;font-size:11px}}
 </style>
 <style data-added="sprite-info-v15">.sprite-info{border:1px solid #516077;border-radius:10px;padding:10px 12px;margin:12px 0;background:#111a29ed;color:#dceaf1;font-size:11px;line-height:1.75}.sprite-info strong{font-size:12px;color:#eac68d}.sprite-info dl{display:grid;grid-template-columns:minmax(105px,40%) 1fr;gap:2px 8px;margin:5px 0 0}.sprite-info dt{color:#aabaca}.sprite-info dd{margin:0;overflow-wrap:anywhere}.sprite-info .warn{color:#ffce8c}</style>
@@ -397,6 +402,153 @@ function underwaterPalette(depth) {
 }
 
 return {createSwim2D,underwaterPalette};
+})();
+const UnderwaterWorld=(()=>{
+/** Procedural underwater diorama. Shared geometry and instancing bound GPU cost.
+ * Coordinates: X horizontal, Y up (0 at surface), Z depth; swimmer stays Z=0.75.
+ * All artwork is generated here; no extra assets or network requests.
+ */
+function createUnderwaterWorld(THREE, {compact = false} = {}) {
+  const root = new THREE.Group();
+  root.name = 'Layered underwater reef';
+  const worldY = depth => -depth * .28;
+  const stone = new THREE.IcosahedronGeometry(1, 1);
+  const ball = new THREE.SphereGeometry(1, 8, 5);
+  const materials = ['#34535a','#456c67','#507c70','#233f4e'].map(color =>
+    new THREE.MeshStandardMaterial({color, roughness: .95, flatShading: true}));
+  const mesh = (geometry, material, x,y,z, sx=1,sy=1,sz=1) => {
+    const object = new THREE.Mesh(geometry, material);
+    object.position.set(x,y,z);object.scale.set(sx,sy,sz);root.add(object);return object;
+  };
+  // The far wall is real relief across three distances, visible through water fog.
+  const placement=new THREE.Object3D();
+  for (let layer=0;layer<3;layer++) {
+    const wall=new THREE.InstancedMesh(stone,materials[layer===0?3:0],99);
+    root.add(wall);let index=0;
+    for (let row=0;row<9;row++) for(let col=0;col<11;col++) {
+      const x=-55+col*11+Math.sin(row*2+col)*3;
+      const y=-9-row*9;
+      placement.position.set(x,y,-14-layer*13);
+      placement.scale.set(6+Math.sin(col*3+row)*2,7+(col+row)%4,4+(col%3));
+      placement.rotation.set(row*.13,col*.47,row*.21);placement.updateMatrix();
+      wall.setMatrixAt(index++,placement.matrix);
+    }
+  }
+  const sand = new THREE.MeshStandardMaterial({color:'#849b83',roughness:1,flatShading:true});
+  // Irregular shelves frame the descent, leaving an open swimming corridor.
+  const shelves=[];
+  for(let level=0;level<8;level++) {
+    const y=-7-level*8.4;
+    for(const side of [-1,1]) {
+      const x=side*(11+Math.sin(level*1.8)*2);
+      const ledge=mesh(stone,materials[level%3],x,y,-3,7,2.5,7);
+      ledge.rotation.z=side*.12;
+      mesh(stone,sand,x,y+1.6,-2.5,5.5,.5,5);
+      shelves.push({x,y:y+2,z:-1,level});
+    }
+  }
+  const floorGeometry=new THREE.PlaneGeometry(130,90,44,30);
+  floorGeometry.rotateX(-Math.PI/2);
+  const fp=floorGeometry.attributes.position;
+  for(let i=0;i<fp.count;i++)fp.setY(i,-70+Math.sin(fp.getX(i)*.18)*1.2+Math.cos(fp.getZ(i)*.24)*.8);
+  floorGeometry.computeVertexNormals();mesh(floorGeometry,sand,0,0,-15);
+  // Horizontal water surface seen from below, with an animated wave silhouette.
+  const surfaceGeometry=new THREE.PlaneGeometry(150,110,48,30);surfaceGeometry.rotateX(-Math.PI/2);
+  const surfaceMat=new THREE.MeshStandardMaterial({color:'#64d8d1',emissive:'#1a7f88',emissiveIntensity:.55,
+    roughness:.88,metalness:0,side:THREE.DoubleSide,transparent:true,opacity:.86});
+  mesh(surfaceGeometry,surfaceMat,0,2,-20);
+  const surfacePositions=surfaceGeometry.attributes.position;
+  const caustics=new THREE.Group();root.add(caustics);
+  const causticMat=new THREE.MeshBasicMaterial({color:'#b9fff0',transparent:true,opacity:.07,depthWrite:false});
+  const ring=new THREE.TorusGeometry(1,.022,4,20);
+  const rp=ring.attributes.position;
+  for(let i=0;i<rp.count;i++){const a=Math.atan2(rp.getY(i),rp.getX(i));const s=1+Math.sin(a*5)*.14;rp.setX(i,rp.getX(i)*s);rp.setY(i,rp.getY(i)*s);}
+  for(let i=0;i<30;i++) {
+    const c=new THREE.Mesh(ring,causticMat);c.rotation.x=-Math.PI/2;
+    c.position.set(-34+(i*13)%69,1.8,-30+(i*17)%47);c.scale.set(1+(i%4),.6+(i%3)*.3,1);caustics.add(c);
+  }
+  // Soft gradient shafts, with no hard rectangular edges or fullscreen filter.
+  const rayCanvas=document.createElement('canvas');rayCanvas.width=64;rayCanvas.height=128;
+  const ctx=rayCanvas.getContext('2d');
+  const g=ctx.createLinearGradient(0,0,64,0);g.addColorStop(0,'transparent');g.addColorStop(.5,'rgba(164,255,234,.5)');g.addColorStop(1,'transparent');
+  ctx.fillStyle=g;ctx.fillRect(0,0,64,128);
+  ctx.globalCompositeOperation='destination-in';const fade=ctx.createLinearGradient(0,0,0,128);
+  fade.addColorStop(0,'transparent');fade.addColorStop(.55,'white');fade.addColorStop(1,'white');ctx.fillStyle=fade;ctx.fillRect(0,0,64,128);
+  const rayTexture=new THREE.CanvasTexture(rayCanvas);
+  const rayMat=new THREE.MeshBasicMaterial({map:rayTexture,transparent:true,opacity:.34,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+  const rays=new THREE.Group();root.add(rays);
+  for(let i=0;i<8;i++) {
+    const r=new THREE.Mesh(new THREE.PlaneGeometry(3+i%3,40),rayMat);
+    r.position.set(-30+i*9,-17,-5-(i%3)*4);r.rotation.z=-.22; rays.add(r);
+  }
+  const kelp=[];
+  const kelpMats=['#285e4c','#40785a','#477e65'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.8,side:THREE.DoubleSide}));
+  const bladeGeometry=new THREE.PlaneGeometry(.45,1,2,8);bladeGeometry.translate(0,.5,0);
+  const bp=bladeGeometry.attributes.position;
+  for(let i=0;i<bp.count;i++){
+    const y=bp.getY(i);bp.setX(i,bp.getX(i)*Math.max(.03,Math.sin(Math.PI*y)*.9)+Math.sin(y*7)*.09);
+    bp.setZ(i,Math.sin(y*5)*.12);
+  }
+  bladeGeometry.computeVertexNormals();
+  for(const shelf of shelves) for(let k=0;k<(compact?4:7);k++) {
+    const blade=new THREE.Mesh(bladeGeometry,kelpMats[k%3]);
+    blade.position.set(shelf.x-5+k*1.5,shelf.y,shelf.z+(k%3)*1.1);
+    blade.scale.set(.6+(k%3)*.3,2+(k*3+shelf.level)%5,1);blade.userData.phase=k+shelf.level;
+    root.add(blade);kelp.push(blade);
+  }
+  // Branching coral on shelves rather than objects floating in open water.
+  const coralMats=['#cc7b7c','#b58baf','#cda76a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.75}));
+  for(const shelf of shelves) for(let k=0;k<4;k++) {
+    const x=shelf.x-4+k*2.4;
+    for(let b=0;b<3;b++) {
+      const branch=mesh(ball,coralMats[(shelf.level+k)%3],x+(b-1)*.3,shelf.y+.4+(b===1?.3:0),-2,.18,.65+(b%2)*.4,.22);
+      branch.rotation.z=(b-1)*-.5;
+    }
+  }
+  // Foreground silhouettes establish camera depth without covering the swimmer.
+  const foregroundMat=new THREE.MeshStandardMaterial({color:'#123d40',roughness:1});
+  for(let i=0;i<12;i++)mesh(stone,foregroundMat,(i%2?1:-1)*(25+i%3*3),-5-i*5.7,5,4,3.5,2);
+  const fishGeometry=new THREE.SphereGeometry(1,8,5);
+  const tailGeometry=new THREE.ConeGeometry(.35,.65,3);tailGeometry.rotateZ(Math.PI/2);
+  const fishMaterials=['#86bbad','#c8ad6f','#548d9a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.55}));
+  const fish=[];
+  for(let i=0;i<(compact?24:42);i++) {
+    const f=new THREE.Group();const mat=fishMaterials[i%3];
+    const body=new THREE.Mesh(fishGeometry,mat);body.scale.set(.46,.19,.13);f.add(body);
+    const tail=new THREE.Mesh(tailGeometry,mat);tail.position.x=-.55;f.add(tail);
+    f.userData={x:-28+(i*13)%56,y:-4-(i*7)%61,z:-5-(i%4)*3,phase:i*.71};root.add(f);fish.push(f);
+  }
+  // A fixed instance pool rises through the water; no per-frame allocations.
+  const bubbleCount=compact?70:130;
+  const bubbles=new THREE.InstancedMesh(ball,new THREE.MeshBasicMaterial({color:'#a9ece7',transparent:true,opacity:.32,depthWrite:false}),bubbleCount);
+  bubbles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);bubbles.frustumCulled=false;root.add(bubbles);
+  const dummy=new THREE.Object3D();
+  const dustCount=compact?160:320, dustPositions=new Float32Array(dustCount*3);
+  for(let i=0;i<dustCount;i++){dustPositions[i*3]=-38+(i*17.31)%76;dustPositions[i*3+1]=-(i*13.17)%74;dustPositions[i*3+2]=-23+(i*3.37)%29;}
+  const dustGeo=new THREE.BufferGeometry();dustGeo.setAttribute('position',new THREE.BufferAttribute(dustPositions,3));
+  root.add(new THREE.Points(dustGeo,new THREE.PointsMaterial({color:'#9cdbd6',size:.045,transparent:true,opacity:.34,depthWrite:false})));
+  const ambient=new THREE.HemisphereLight('#75d8df','#142e39',1.1);root.add(ambient);
+  const sun=new THREE.DirectionalLight('#b7fff0',2.4);sun.position.set(-12,20,12);root.add(sun);
+  const lamp=new THREE.PointLight('#b5ffff',6,12,1.6);root.add(lamp);
+  return {root, worldY, update(time,depth,x,lightOn){
+    for(let i=0;i<surfacePositions.count;i++)surfacePositions.setY(i,Math.sin(surfacePositions.getX(i)*.3+time*.7)*.18+Math.sin(surfacePositions.getZ(i)*.4-time*.5)*.12);
+    surfacePositions.needsUpdate=true;surfaceGeometry.computeVertexNormals();
+    caustics.position.x=Math.sin(time*.18)*.8;causticMat.opacity=.055+Math.sin(time*.7)*.015;
+    rays.children.forEach((r,i)=>{r.rotation.z=-.22+Math.sin(time*.2+i)*.025;});
+    kelp.forEach(k=>{k.rotation.z=Math.sin(time*.8+k.userData.phase)*.13;k.rotation.y=Math.sin(time*.35+k.userData.phase)*.3;});
+    fish.forEach(f=>{const d=f.userData;f.position.set(d.x+Math.sin(time*.18+d.phase)*6,d.y+Math.sin(time*.9+d.phase)*.3,d.z);f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;});
+    for(let i=0;i<bubbleCount;i++){
+      const by=-72+((i*13.23+time*(.5+i%4*.18))%74);
+      dummy.position.set(-28+(i*17.7)%56+Math.sin(time*.7+i)*.15,by,-10+(i*2.3)%16);
+      dummy.scale.setScalar(.025+(i%5)*.014);dummy.updateMatrix();bubbles.setMatrixAt(i,dummy.matrix);
+    }
+    bubbles.instanceMatrix.needsUpdate=true;
+    ambient.intensity=Math.max(.12,1.1-depth*.004);sun.intensity=2.4*Math.exp(-depth/65);
+    lamp.visible=lightOn;lamp.position.set(x,worldY(depth)+.6,2);
+  }};
+}
+
+return {createUnderwaterWorld};
 })();
 // Same collider source powers C-WASM, Rust-WASM, 3D scene and debug overlay.
 const collisionWorld={"revision":8,"playerRadius":0.68,"bounds":{"minX":-23.8,"maxX":23.8,"minZ":-18.5,"maxZ":100.0},"houses":[{"x":-6.8,"z":-6.3,"halfX":2.72,"halfZ":2.24},{"x":6.8,"z":-6.3,"halfX":2.72,"halfZ":2.24},{"x":-6.8,"z":6.3,"halfX":2.72,"halfZ":2.24},{"x":6.8,"z":6.3,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":-12.7,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":0.0,"halfX":2.72,"halfZ":2.24},{"x":-17.2,"z":12.7,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":-12.7,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":0.0,"halfX":2.72,"halfZ":2.24},{"x":17.2,"z":12.7,"halfX":2.72,"halfZ":2.24},{"x":-6.0,"z":-15.4,"halfX":2.72,"halfZ":2.24,"elevation":1.6},{"x":6.0,"z":-15.4,"halfX":2.72,"halfZ":2.24,"elevation":1.6},{"x":-8.5,"z":68.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":68.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":-8.5,"z":78.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":78.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":-8.5,"z":88.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"},{"x":8.5,"z":88.5,"halfX":2.72,"halfZ":2.24,"region":"青葉の町"}],"fountain":{"x":0.0,"z":-3.5,"radius":1.5},"trees":[{"x":-11.2,"z":-8.6,"radius":0.53},{"x":-11.7,"z":-1,"radius":0.53},{"x":-11.4,"z":8.4,"radius":0.53},{"x":-4.7,"z":9.3,"radius":0.53},{"x":11.2,"z":-8.6,"radius":0.53},{"x":11.7,"z":-1,"radius":0.53},{"x":11.4,"z":8.4,"radius":0.53},{"x":4.7,"z":9.3,"radius":0.53},{"x":-22.5,"z":-17.0,"radius":0.53},{"x":-22.5,"z":-5.8,"radius":0.53},{"x":-22.5,"z":5.8,"radius":0.53},{"x":-22.5,"z":17.0,"radius":0.53},{"x":22.5,"z":-17.0,"radius":0.53},{"x":22.5,"z":-5.8,"radius":0.53},{"x":22.5,"z":5.8,"radius":0.53},{"x":22.5,"z":17.0,"radius":0.53},{"x":-4.2,"z":15.8,"radius":0.53},{"x":4.2,"z":15.8,"radius":0.53},{"x":-17.5,"z":27,"radius":0.53},{"x":-12.7,"z":27,"radius":0.53},{"x":12.7,"z":27,"radius":0.53},{"x":17.5,"z":27,"radius":0.53},{"x":-17.5,"z":34,"radius":0.53},{"x":-12.7,"z":34,"radius":0.53},{"x":12.7,"z":34,"radius":0.53},{"x":17.5,"z":34,"radius":0.53},{"x":-17.5,"z":42,"radius":0.53},{"x":-12.7,"z":42,"radius":0.53},{"x":12.7,"z":42,"radius":0.53},{"x":17.5,"z":42,"radius":0.53},{"x":-17.5,"z":50,"radius":0.53},{"x":-12.7,"z":50,"radius":0.53},{"x":12.7,"z":50,"radius":0.53},{"x":17.5,"z":50,"radius":0.53},{"x":-17.5,"z":57,"radius":0.53},{"x":-12.7,"z":57,"radius":0.53},{"x":12.7,"z":57,"radius":0.53},{"x":17.5,"z":57,"radius":0.53},{"x":-18.0,"z":65,"radius":0.53},{"x":18.0,"z":65,"radius":0.53},{"x":-18.0,"z":73,"radius":0.53},{"x":-18.0,"z":81,"radius":0.53},{"x":18.0,"z":81,"radius":0.53},{"x":-18.0,"z":89,"radius":0.53},{"x":18.0,"z":89,"radius":0.53},{"x":-18.0,"z":95,"radius":0.53},{"x":18.0,"z":95,"radius":0.53},{"x":21.4,"z":67.5,"radius":0.53}],"elevation":{"deck":{"x":0.0,"halfX":2.2,"zMin":6.9,"zMax":9.5,"height":1.4},"access":{"x":0.0,"halfX":1.9,"zMin":4.1,"zMax":6.9,"height":1.4,"stairsFromX":0.2,"steps":9},"maxStepUp":0.24,"gravity":12.8,"jumpVelocity":5.0},"upperVillage":{"deck":{"x":0.0,"halfX":10.4,"zMin":-18.2,"zMax":-10.35,"height":1.6},"access":{"x":0.0,"halfX":1.7,"zMin":-10.35,"zMax":-7.05,"stairsFromX":0.0,"steps":12},"stairsDirection":"negativeZ"},"accessSideWalls":{"halfThickness":0.12,"endCap":0.06,"visualHeight":0.48,"description":"Both sides of each raised access lane are solid collision walls, independent of camera direction."},"regions":[{"id":"origin","name":"石畳の村","minZ":-18.5,"maxZ":20},{"id":"forest","name":"こもれび街道","minZ":20,"maxZ":63},{"id":"aoba","name":"青葉の町","minZ":63,"maxZ":100}],"trail":{"startZ":19,"endZ":63,"targetZ":78.5,"width":4.6},"southAccess":{"x":0.0,"halfX":1.92,"zMin":9.5,"zMax":12.8,"height":1.4,"steps":0}};
@@ -1591,50 +1743,24 @@ heroShadow.rotation.x=-Math.PI/2;heroShadow.position.set(0,.07,3.5);scene.add(he
 // the land scene, so the existing WASM ABI and town maps remain unchanged.
 const swim2d=Underwater.createSwim2D({depthMax:240});
 const underwaterRoot=new THREE.Group();underwaterRoot.name='Underwater demo';underwaterRoot.visible=false;scene.add(underwaterRoot);
-const underwaterBackdrop=new THREE.Mesh(new THREE.PlaneGeometry(120,52),new THREE.MeshBasicMaterial({color:'#0b4860'}));
-underwaterBackdrop.position.set(0,0,-1.8);underwaterRoot.add(underwaterBackdrop);
-const underwaterMidground=new THREE.Mesh(new THREE.PlaneGeometry(120,52),new THREE.MeshBasicMaterial({color:'#0b7180',transparent:true,opacity:.42}));
-underwaterMidground.position.set(0,0,-.9);underwaterRoot.add(underwaterMidground);
-const underwaterFloor=new THREE.Mesh(new THREE.PlaneGeometry(120,4),new THREE.MeshStandardMaterial({color:'#173e48',roughness:1}));
-underwaterFloor.position.set(0,-10.9,.2);underwaterRoot.add(underwaterFloor);
-const underwaterAmbient=new THREE.HemisphereLight('#5bd8e5','#071d2b',1.3);underwaterRoot.add(underwaterAmbient);
-const underwaterKey=new THREE.DirectionalLight('#7feeff',1.2);underwaterKey.position.set(-8,15,8);underwaterRoot.add(underwaterKey);
-const underwaterLamp=new THREE.PointLight('#b5ffff',2.6,11,1.7);underwaterRoot.add(underwaterLamp);
-const underwaterRays=new THREE.Group();underwaterRoot.add(underwaterRays);
-for(let i=0;i<9;i++){
-  const ray=new THREE.Mesh(new THREE.PlaneGeometry(2.4+(i%3)*.8,26),new THREE.MeshBasicMaterial({color:'#9dfff1',transparent:true,opacity:.055,depthWrite:false,side:THREE.DoubleSide}));
-  ray.position.set(-20+i*5.1,8+(i%2)*1.4,1.05);ray.rotation.z=-.16+(i%3)*.08;ray.userData={phase:i*.73};underwaterRays.add(ray);
-}
+// Built on first entry so the land demo does not allocate underwater resources.
+let underwaterWorld=null;
 const underwaterItems=[];
-const underwaterDecor=[];
-const underwaterFish=[];
-const underwaterMat=(color,emissive=null)=>new THREE.MeshStandardMaterial({color,roughness:.82,emissive:emissive||color,emissiveIntensity:emissive?1.2:.05});
-for(let i=0;i<22;i++){
-  const depth=8+(i*17)%226, x=((i*29)%38)-19;
-  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.45+(i%4)*.16,0),underwaterMat(i%3?'#315c65':'#426f70'));
-  rock.position.set(x,5-depth*.05,-.15-(i%3)*.38);rock.scale.y=.55;underwaterRoot.add(rock);underwaterDecor.push(rock);
-  if(i%3===0){
-    const coral=new THREE.Mesh(new THREE.ConeGeometry(.10+(i%2)*.07,.9+(i%3)*.25,6),underwaterMat(i%2?'#c56e83':'#e7ae70',i%2?'#50213d':'#593719'));
-    coral.position.set(x+.6,rock.position.y+.43,-.1);coral.rotation.z=(i%2?.18:-.18);underwaterRoot.add(coral);underwaterDecor.push(coral);
+function prepareUnderwaterWorld(){
+  if(underwaterWorld)return;
+  underwaterWorld=UnderwaterWorld.createUnderwaterWorld(THREE,{compact:matchMedia('(max-width:700px)').matches});
+  underwaterRoot.add(underwaterWorld.root);
+  const material=new THREE.MeshStandardMaterial({color:'#ffe6a3',emissive:'#e7a650',emissiveIntensity:1.8,roughness:.35});
+  const geometry=new THREE.OctahedronGeometry(.3,0);
+  for(let i=0;i<6;i++){
+    const depth=18+i*37,x=-15+(i*11)%30;
+    const item=new THREE.Mesh(geometry,material);
+    item.position.set(x,underwaterWorld.worldY(depth),.5);item.userData={depth,x,got:false};
+    underwaterRoot.add(item);underwaterItems.push(item);
   }
 }
-for(let i=0;i<10;i++){
-  const fish=new THREE.Mesh(new THREE.SphereGeometry(.34,8,5),underwaterMat(i%2?'#8ec5b8':'#d09b68'));
-  const depth=14+(i*23)%210;
-  fish.position.set(((i*19)%34)-17,5-depth*.05,-.45);fish.scale.set(1.8,.62,.5);
-  fish.userData={baseX:fish.position.x,baseY:fish.position.y,phase:i*.9};underwaterRoot.add(fish);underwaterFish.push(fish);
-}
-for(let i=0;i<6;i++){
-  const depth=18+i*37, x=-15+(i*11)%30;
-  const item=new THREE.Mesh(new THREE.OctahedronGeometry(.25,0),underwaterMat('#ffd78c','#d4893e'));
-  item.position.set(x,5-depth*.05,.5);item.userData={depth,x,got:false};underwaterRoot.add(item);underwaterItems.push(item);
-}
-const underwaterBubbles=[];
-for(let i=0;i<70;i++){
-  const bubble=new THREE.Mesh(new THREE.SphereGeometry(.025+(i%4)*.012,6,6),new THREE.MeshBasicMaterial({color:'#b5ffff',transparent:true,opacity:.28}));
-  bubble.position.set(((i*47)%50)-25,5-((i*31)%238)*.05,.35+(i%5)*.06);bubble.userData={baseY:bubble.position.y,phase:i*.71};underwaterRoot.add(bubble);underwaterBubbles.push(bubble);
-}
 let underwaterMode=false,underwaterLightOn=true,underwaterLandVisibility=new Map();
+let underwaterReturnView=null;
 let underwaterHintUntil=0;
 function updateUnderwaterHUD(){
   const depth=Math.round(swim2d.state.depth);
@@ -1656,16 +1782,19 @@ function setUnderwaterLighting(){
   const color=new THREE.Color(p.fog[0],p.fog[1],p.fog[2]);
   scene.background=color;scene.fog.color.copy(color);scene.fog.density=p.haze;
   $('underwater-overlay').style.setProperty('--depth-factor',String(Math.min(1,swim2d.state.depth/240)));
-  underwaterAmbient.intensity=p.light*.85;underwaterKey.intensity=p.light*.72;
-  underwaterLamp.visible=underwaterLightOn;underwaterLamp.intensity=underwaterLightOn?2.6:0;
-  underwaterLamp.position.set(swim2d.state.x,5-swim2d.state.depth*.05,.8);
+  underwaterWorld.update(animationTime,swim2d.state.depth,swim2d.state.x,underwaterLightOn);
 }
 function enterUnderwater(){
   if(underwaterMode)return;
+  prepareUnderwaterWorld();
+  underwaterReturnView={fov:camera.fov,background:scene.background.clone(),fog:scene.fog.color.clone(),density:scene.fog.density,heroColor:heroMaterial.color.clone()};
   underwaterLandVisibility=new Map(scene.children.filter(c=>c!==underwaterRoot).map(c=>[c,c.visible]));
   for(const child of scene.children)child.visible=child===underwaterRoot;
   underwaterRoot.visible=true;hero.visible=true;heroShadow.visible=false;underwaterMode=true;
-  swim2d.reset(0,0);inputs.clear();underwaterItems.forEach(i=>{i.userData.got=false;i.visible=true;});
+  stage.classList.add('underwater-active');
+  heroMaterial.color.set('#ffffff');heroMaterial.rotation=0;
+  inputs.clear();mobileRun=false;
+  cameraTarget.set(swim2d.state.x,underwaterWorld.worldY(swim2d.state.depth),0);
   $('underwater-hud').classList.add('active');$('underwater-overlay').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('jump-btn').style.display='none';$('attack-btn').style.display='none';$('interact-btn').classList.remove('active');$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
   $('panel').hidden=true;$('panel-toggle').setAttribute('aria-expanded','false');$('panel-toggle').textContent='⚙ 設定を開く';
   $('region-name').textContent='水中探索';$('trail-guide').textContent='海面から深海へ潜降できます';
@@ -1674,10 +1803,15 @@ function enterUnderwater(){
 function exitUnderwater(){
   if(!underwaterMode)return;
   underwaterMode=false;for(const [child,visible] of underwaterLandVisibility)child.visible=visible;
+  stage.classList.remove('underwater-active');
   underwaterRoot.visible=false;hero.visible=true;heroShadow.visible=true;
   $('underwater-hud').classList.remove('active');$('underwater-overlay').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('jump-btn').style.display='block';$('attack-btn').style.display='block';$('interact-btn').classList.remove('active');$('door-prompt').classList.remove('active');$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
-  scene.background.set('#8e9cb0');scene.fog.color.set('#8e9cb0');scene.fog.density=.021;
-  camera.fov=41;camera.updateProjectionMatrix();changeArea(0,{x:0,z:3.5});
+  inputs.clear();mobileRun=false;
+  scene.background.copy(underwaterReturnView.background);scene.fog.color.copy(underwaterReturnView.fog);scene.fog.density=underwaterReturnView.density;
+  heroMaterial.color.copy(underwaterReturnView.heroColor);heroMaterial.rotation=0;
+  camera.fov=underwaterReturnView.fov;camera.updateProjectionMatrix();
+  target.set(indoor.active?interiorOrigin.x+indoor.x:engine.get_x(),indoor.active?indoor.y:engine.get_y(),indoor.active?interiorOrigin.z+indoor.z:engine.get_z());
+  cameraTarget.copy(target);syncDoorPrompt();
 }
 function underwaterInteract(){
   const nearest=underwaterItems.filter(i=>!i.userData.got).sort((a,b)=>a.position.distanceTo(hero.position)-b.position.distanceTo(hero.position))[0];
@@ -1686,18 +1820,22 @@ function underwaterInteract(){
 function stepUnderwater(dt){
   const state=swim2d.step({left:inputs.has('a')||inputs.has('arrowleft'),right:inputs.has('d')||inputs.has('arrowright'),up:inputs.has('w')||inputs.has('arrowup'),down:inputs.has('s')||inputs.has('arrowdown'),boost:inputs.has('shift')||mobileRun},dt);
   state.x=Math.max(-22,Math.min(22,state.x));
-  const y=5-state.depth*.05;
-  hero.position.set(state.x,y,.75);hero.scale.setScalar(1.12);hero.visible=true;
+  const y=underwaterWorld.worldY(state.depth);
+  hero.position.set(state.x,y,.75);hero.visible=true;
   const facing=state.vx<-.05?'left':state.vx>.05?'right':heroFacing;heroFacing=facing;
   const frame=Math.floor(animationTime*8)%SPRITE_CONFIG.idle.frames;
   drawSprite('idle',frame,facing,state.vx,state.vy);updateHeroSize('idle');
-  target.set(state.x,y,0);cameraTarget.lerp(target,1-Math.exp(-dt*3.2));camera.position.set(cameraTarget.x,cameraTarget.y+1.5,22);camera.lookAt(cameraTarget.x,cameraTarget.y,0);
-  underwaterDecor.forEach((o,i)=>{o.rotation.y+=dt*(.08+(i%3)*.03);});
-  underwaterRays.children.forEach((ray,i)=>{ray.position.x+=Math.sin(animationTime*.13+ray.userData.phase)*dt*.08;ray.rotation.z+=Math.sin(animationTime*.22+ray.userData.phase)*dt*.004;});
-  underwaterFish.forEach(f=>{f.position.x=f.userData.baseX+Math.sin(animationTime*.35+f.userData.phase)*1.2;f.position.y=f.userData.baseY+Math.sin(animationTime*.7+f.userData.phase)*.12;});
-  underwaterBubbles.forEach(b=>{b.position.y=b.userData.baseY+Math.sin(animationTime*.5+b.userData.phase)*.11;});
+  heroMaterial.rotation=THREE.MathUtils.lerp(heroMaterial.rotation,-state.vx*.055,1-Math.exp(-dt*4));
+  focusDistance.value=camera.position.distanceTo(hero.position);
+  target.set(state.x,y-1.4,0);cameraTarget.lerp(target,1-Math.exp(-dt*3.2));
+  // Keep the vertical view span comfortable on portrait phones.
+  const distance=camera.aspect<.8?26:19;
+  camera.position.set(cameraTarget.x,cameraTarget.y+1.5,distance);camera.lookAt(cameraTarget.x,cameraTarget.y,0);
+  underwaterItems.forEach(item=>{item.rotation.y=animationTime*.6;});
   setUnderwaterLighting();updateUnderwaterHUD();
   try{postProcessing.render();}catch{renderer.render(scene,camera);}
+  frameSamples++;
+  const now=performance.now();if(now-lastShown>500){$('fps').textContent=Math.round(frameSamples*1000/(now-lastShown));frameSamples=0;lastShown=now;}
 }
 $('underwater-demo').addEventListener('click',enterUnderwater);$('underwater-exit').addEventListener('click',exitUnderwater);
 $('light-btn').addEventListener('pointerdown',e=>{e.preventDefault();if(underwaterMode){underwaterLightOn=!underwaterLightOn;updateUnderwaterHUD();}});
