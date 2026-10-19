@@ -18,6 +18,12 @@
 #location-hud{position:absolute;left:16px;top:108px;z-index:4;padding:8px 12px;background:#0f2534d9;border:1px solid #d8b7788c;border-radius:10px;pointer-events:none;font-size:11px;line-height:1.5;max-width:200px;color:#fff4d7;backdrop-filter:blur(6px)}#location-hud small{display:block;color:#c2d8d3;font-size:10px} @media(max-width:520px){#location-hud{top:118px;left:12px;font-size:10px;max-width:145px;padding:6px 8px}}
 #film-overlay{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.48;
  background:radial-gradient(ellipse 75% 72% at 50% 48%,transparent 43%,rgba(14,21,31,.25) 77%,rgba(8,13,24,.58) 100%),linear-gradient(180deg,rgba(255,197,121,.08),transparent 26%,transparent 76%,rgba(12,20,26,.12))}
+#underwater-overlay{display:none;position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden;opacity:calc(.28 + var(--depth-factor,0) * .42);background:radial-gradient(ellipse 88% 78% at 50% 45%,transparent 30%,rgba(0,30,48,.18) 66%,rgba(0,8,22,.72) 100%),linear-gradient(180deg,rgba(123,239,239,.20),transparent 25%,rgba(0,15,32,.28) 100%);mix-blend-mode:multiply}
+#underwater-overlay.active{display:block}
+#underwater-overlay:before{content:'';position:absolute;inset:-20% -10%;background:repeating-linear-gradient(108deg,transparent 0 9%,rgba(157,249,238,.13) 11%,transparent 17% 27%);transform:translateX(-18%) skewX(-12deg);animation:underwater-rays 12s ease-in-out infinite alternate;filter:blur(8px)}
+#underwater-overlay:after{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(190,255,251,.42) 0 1px,transparent 1.8px),radial-gradient(circle,rgba(125,224,230,.25) 0 1px,transparent 1.8px);background-size:83px 97px,137px 151px;background-position:12px 20px,43px 71px;opacity:.28;animation:underwater-drift 18s linear infinite}
+@keyframes underwater-rays{from{transform:translateX(-18%) skewX(-12deg)}to{transform:translateX(12%) skewX(-7deg)}}
+@keyframes underwater-drift{from{background-position:12px 20px,43px 71px}to{background-position:72px 180px,190px -40px}}
 .top,.hud{z-index:2}
 .look-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 12px}
 .look-presets button{background:#263548;border:1px solid #46556d;border-radius:9px;padding:10px 6px;font-size:12px;color:#e9edf0;cursor:pointer;font-weight:700}
@@ -96,6 +102,7 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
 <div id="app">
   <main id="stage">
     <div id="film-overlay" aria-hidden="true"></div>
+    <div id="underwater-overlay" aria-hidden="true"></div>
     <div id="door-prompt" role="status" aria-live="polite"></div>
     <div id="location-hud" aria-live="off"><strong id="region-name">石畳の村</strong><small id="trail-guide">南へ進むと、こもれび街道 → 青葉の町</small></div>
     <div id="world-clock-hud" aria-live="off"><strong id="world-clock-label">Day 1 · 17:00</strong><small id="world-clock-phase">夕方 · 進行中</small><small id="world-season-label">春 · 1年目</small></div>
@@ -1180,6 +1187,11 @@ underwaterFloor.position.set(0,-10.9,.2);underwaterRoot.add(underwaterFloor);
 const underwaterAmbient=new THREE.HemisphereLight('#5bd8e5','#071d2b',1.3);underwaterRoot.add(underwaterAmbient);
 const underwaterKey=new THREE.DirectionalLight('#7feeff',1.2);underwaterKey.position.set(-8,15,8);underwaterRoot.add(underwaterKey);
 const underwaterLamp=new THREE.PointLight('#b5ffff',2.6,11,1.7);underwaterRoot.add(underwaterLamp);
+const underwaterRays=new THREE.Group();underwaterRoot.add(underwaterRays);
+for(let i=0;i<9;i++){
+  const ray=new THREE.Mesh(new THREE.PlaneGeometry(2.4+(i%3)*.8,26),new THREE.MeshBasicMaterial({color:'#9dfff1',transparent:true,opacity:.055,depthWrite:false,side:THREE.DoubleSide}));
+  ray.position.set(-20+i*5.1,8+(i%2)*1.4,1.05);ray.rotation.z=-.16+(i%3)*.08;ray.userData={phase:i*.73};underwaterRays.add(ray);
+}
 const underwaterItems=[];
 const underwaterDecor=[];
 const underwaterFish=[];
@@ -1230,6 +1242,7 @@ function setUnderwaterLighting(){
   const p=Underwater.underwaterPalette(swim2d.state.depth);
   const color=new THREE.Color(p.fog[0],p.fog[1],p.fog[2]);
   scene.background=color;scene.fog.color.copy(color);scene.fog.density=p.haze;
+  $('underwater-overlay').style.setProperty('--depth-factor',String(Math.min(1,swim2d.state.depth/240)));
   underwaterAmbient.intensity=p.light*.85;underwaterKey.intensity=p.light*.72;
   underwaterLamp.visible=underwaterLightOn;underwaterLamp.intensity=underwaterLightOn?2.6:0;
   underwaterLamp.position.set(swim2d.state.x,5-swim2d.state.depth*.05,.8);
@@ -1240,7 +1253,7 @@ function enterUnderwater(){
   for(const child of scene.children)child.visible=child===underwaterRoot;
   underwaterRoot.visible=true;hero.visible=true;heroShadow.visible=false;underwaterMode=true;
   swim2d.reset(0,0);inputs.clear();underwaterItems.forEach(i=>{i.userData.got=false;i.visible=true;});
-  $('underwater-hud').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('jump-btn').style.display='none';$('attack-btn').style.display='none';$('interact-btn').classList.remove('active');$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
+  $('underwater-hud').classList.add('active');$('underwater-overlay').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('jump-btn').style.display='none';$('attack-btn').style.display='none';$('interact-btn').classList.remove('active');$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
   $('panel').hidden=true;$('panel-toggle').setAttribute('aria-expanded','false');$('panel-toggle').textContent='⚙ 設定を開く';
   $('region-name').textContent='水中探索';$('trail-guide').textContent='海面から深海へ潜降できます';
   camera.fov=48;camera.updateProjectionMatrix();setUnderwaterLighting();updateUnderwaterHUD();
@@ -1249,7 +1262,7 @@ function exitUnderwater(){
   if(!underwaterMode)return;
   underwaterMode=false;for(const [child,visible] of underwaterLandVisibility)child.visible=visible;
   underwaterRoot.visible=false;hero.visible=true;heroShadow.visible=true;
-  $('underwater-hud').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('jump-btn').style.display='block';$('attack-btn').style.display='block';$('interact-btn').classList.remove('active');$('door-prompt').classList.remove('active');$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
+  $('underwater-hud').classList.remove('active');$('underwater-overlay').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('jump-btn').style.display='block';$('attack-btn').style.display='block';$('interact-btn').classList.remove('active');$('door-prompt').classList.remove('active');$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
   scene.background.set('#8e9cb0');scene.fog.color.set('#8e9cb0');scene.fog.density=.021;
   camera.fov=41;camera.updateProjectionMatrix();changeArea(0,{x:0,z:3.5});
 }
@@ -1267,6 +1280,7 @@ function stepUnderwater(dt){
   drawSprite('idle',frame,facing,state.vx,state.vy);updateHeroSize('idle');
   target.set(state.x,y,0);cameraTarget.lerp(target,1-Math.exp(-dt*3.2));camera.position.set(cameraTarget.x,cameraTarget.y+1.5,22);camera.lookAt(cameraTarget.x,cameraTarget.y,0);
   underwaterDecor.forEach((o,i)=>{o.rotation.y+=dt*(.08+(i%3)*.03);});
+  underwaterRays.children.forEach((ray,i)=>{ray.position.x+=Math.sin(animationTime*.13+ray.userData.phase)*dt*.08;ray.rotation.z+=Math.sin(animationTime*.22+ray.userData.phase)*dt*.004;});
   underwaterFish.forEach(f=>{f.position.x=f.userData.baseX+Math.sin(animationTime*.35+f.userData.phase)*1.2;f.position.y=f.userData.baseY+Math.sin(animationTime*.7+f.userData.phase)*.12;});
   underwaterBubbles.forEach(b=>{b.position.y=b.userData.baseY+Math.sin(animationTime*.5+b.userData.phase)*.11;});
   setUnderwaterLighting();updateUnderwaterHUD();
