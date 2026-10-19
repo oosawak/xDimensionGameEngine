@@ -59,6 +59,14 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
 .btn{display:block;width:100%;padding:10px 9px;background:#273446;border:1px solid #546072;color:#f4f0e9;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px}.btn:hover{background:#364459}
 .footer{margin-top:25px;font-size:10px;line-height:1.6;color:#8492a7}.wasm-badge{font-size:11px;padding:8px 10px;border:1px solid #526552;background:#263a31;border-radius:8px;color:#a7f2c7;margin-top:10px}
 #pad{display:block;position:absolute;left:16px;bottom:max(22px,env(safe-area-inset-bottom));width:144px;height:144px;touch-action:none;pointer-events:auto;z-index:12}
+#swim-stick{display:none;position:absolute;left:16px;bottom:max(22px,env(safe-area-inset-bottom));width:144px;height:144px;border-radius:50%;border:2px solid #a1e8df88;background:radial-gradient(circle,#25657570 0 30%,#0b354c99 31% 67%,#5db8b02b 68%);z-index:12;touch-action:none;user-select:none;cursor:grab;box-shadow:inset 0 0 18px #062d42,0 3px 14px #001b2b77}
+#swim-stick:before,#swim-stick:after{content:'';position:absolute;background:#baf5e42d;pointer-events:none}
+#swim-stick:before{left:50%;top:12px;bottom:12px;width:1px}#swim-stick:after{top:50%;left:12px;right:12px;height:1px}
+#swim-stick-knob{position:absolute;left:42px;top:42px;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#92ded9,#2c7785 65%,#174454);border:2px solid #c2fff1b0;box-shadow:0 4px 12px #001824aa;pointer-events:none;will-change:transform}
+#stage.underwater-active #pad{display:none}#stage.underwater-active #swim-stick{display:block}
+@media(max-width:520px){#swim-stick{left:10px;bottom:max(20px,env(safe-area-inset-bottom))}}
+@media(max-width:360px){#swim-stick{transform:scale(.84);transform-origin:bottom left}}
+@media(max-height:450px){#swim-stick{transform:scale(.72);transform-origin:bottom left}}
 .pbtn{position:absolute;width:47px;height:47px;border-radius:11px;background:#122232a8;border:1px solid #ffffff63;color:white;font-size:21px;touch-action:none;user-select:none;display:grid;place-items:center;backdrop-filter:blur(7px);cursor:pointer}
 .pbtn:active,.pbtn.pressed{background:#c6a36bce;color:#171b24}
 #actions{position:absolute;right:16px;bottom:max(30px,env(safe-area-inset-bottom));display:flex;gap:8px;z-index:12;align-items:end}
@@ -112,7 +120,7 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div id="location-hud" aria-live="off"><strong id="region-name">石畳の村</strong><small id="trail-guide">南へ進むと、こもれび街道 → 青葉の町</small></div>
     <div id="world-clock-hud" aria-live="off"><strong id="world-clock-label">Day 1 · 17:00</strong><small id="world-clock-phase">夕方 · 進行中</small><small id="world-season-label">春 · 1年目</small></div>
     <div id="puzzle-hud" role="status" aria-live="polite"><strong id="puzzle-progress">石のスイッチ · 0 / 2</strong><small id="puzzle-guide">木箱をEキー／画面ボタンで押す</small></div>
-    <div id="underwater-hud" role="status" aria-live="polite"><strong id="underwater-depth">深度 0m</strong><small><b id="underwater-items">採集 0 / 6</b> · ライト <b id="underwater-light">ON</b></small><small id="underwater-hint">W/S：潜降・浮上　A/D：遊泳　E：採集　F：ライト</small></div>
+    <div id="underwater-hud" role="status" aria-live="polite"><strong id="underwater-depth">深度 0m</strong><small><b id="underwater-items">採集 0 / 6</b> · ライト <b id="underwater-light">ON</b></small><small id="underwater-catch">魚 0 / 12 · AUTO</small><small id="underwater-hint">近くの魚へ自動射撃 · W↑ / S↓ · E 採集 · F ライト</small></div>
     <button type="button" id="underwater-exit">↩ 街へ戻る</button>
     <div id="map-fade" aria-hidden="true"><span id="map-fade-label">MAP CHANGE</span></div>
     <div id="room-wall-message" aria-live="off">壁です。別の方向へ移動できます</div>
@@ -121,6 +129,7 @@ input[type=range]{width:100%;margin:9px 0 1px;accent-color:#dec18c;cursor:pointe
     <div class="top"><small>XDIMENSION · THREE.JS × WASM · v0.0.20</small><h1>xDimension <span style="display:block;font-size:.6em;margin-top:4px;color:#eac68d">GAME ENGINE</span></h1><p>Three towns · interactive puzzles · connected worlds · WASM</p></div>
     <div id="notice">Three.jsをCDNから読み込んでいます。<br>インターネット接続が必要です。</div>
     <div id="pad" aria-label="移動コントローラー（常時表示）"><button class="pbtn" id="up" data-key="ArrowUp">▲</button><button class="pbtn" id="left" data-key="ArrowLeft">◀</button><button class="pbtn" id="right" data-key="ArrowRight">▶</button><button class="pbtn" id="down" data-key="ArrowDown">▼</button></div>
+    <div id="swim-stick" role="group" aria-label="遊泳スティック：ドラッグした方向へ泳ぐ"><div id="swim-stick-knob"></div></div>
     <div id="actions" aria-label="アクション操作（常時表示）"><button type="button" class="actbtn" id="run-btn">RUN</button><button type="button" class="actbtn" id="jump-btn">JUMP</button><button type="button" class="actbtn" id="attack-btn">ATTACK</button><button type="button" class="actbtn" id="light-btn">LIGHT</button></div>
     <div class="hud"><div class="status">● LIVE SIMULATION / <span id="backend-hud">INITIALIZING</span></div><div>座標 <b id="coords">0.00, 0.00, 3.50</b>　衝突 <b id="hits">0</b></div><div>WASM呼出 <span id="frames">0</span>　FPS <span id="fps">--</span></div><div>キャラ <b id="char-state">idle</b> · <b id="dir-state">right</b> <span id="surface-state">GROUND</span></div></div>
   </main>
@@ -365,8 +374,10 @@ function createSwim2D(options = {}) {
   return {
     state,
     step(input = {}, dt = 0) {
-      const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-      const dy = (input.down ? 1 : 0) - (input.up ? 1 : 0);
+      let dx = Number.isFinite(input.axisX) ? input.axisX : (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      let dy = Number.isFinite(input.axisY) ? input.axisY : (input.down ? 1 : 0) - (input.up ? 1 : 0);
+      const inputLength=Math.hypot(dx,dy);
+      if(inputLength>1){dx/=inputLength;dy/=inputLength;}
       const boost = input.boost ? 1.45 : 1;
       state.vx += dx * state.acceleration * boost * dt;
       state.vy += dy * state.acceleration * boost * dt;
@@ -381,7 +392,7 @@ function createSwim2D(options = {}) {
         state.vy *= scale;
       }
       state.x += state.vx * dt;
-      state.depth = Math.max(state.depthMin, Math.min(state.depthMax, state.depth + state.vy * dt));
+      state.depth = Math.max(state.depthMin, Math.min(state.depthMax, state.depth + state.vy * dt * (options.verticalSpeedMultiplier ?? 1)));
       if (state.depth === state.depthMin || state.depth === state.depthMax) state.vy = 0;
       return state;
     },
@@ -401,7 +412,59 @@ function underwaterPalette(depth) {
   };
 }
 
-return {createSwim2D,underwaterPalette};
+/** XY-plane projectiles, independent of rendering. Segment hits avoid tunnelling
+ * even at low frame rates. Targets behind the scenery are never passed here. */
+function createFishShooter({capacity=12, speed=22, range=20, cooldown=.3}={}) {
+  const shots=Array.from({length:capacity},()=>({active:false,x:0,y:0,dx:1,dy:0,remaining:0}));
+  let wait=0,caught=0;
+  return {shots, get caught(){return caught;},
+    fire(x,y,dx=1,dy=0){
+      if(wait>0)return false;
+      const length=Math.hypot(dx,dy);if(!length)return false;
+      const shot=shots.find(s=>!s.active);if(!shot)return false;
+      Object.assign(shot,{active:true,x,y,dx:dx/length,dy:dy/length,remaining:range});
+      wait=cooldown;return true;
+    },
+    step(dt,targets){
+      wait=Math.max(0,wait-dt);const hits=[];
+      for(const shot of shots){
+        if(!shot.active)continue;
+        const travel=Math.min(speed*dt,shot.remaining);
+        let nearest=null,nearestDistance=Infinity;
+        for(const target of targets){
+          if(target.captured)continue;
+          const tx=target.x-shot.x,ty=target.y-shot.y;
+          const along=tx*shot.dx+ty*shot.dy;
+          const radius=(target.radius??.5)+.12;
+          const perpendicular=tx*tx+ty*ty-along*along;
+          if(perpendicular>radius*radius)continue;
+          const half=Math.sqrt(Math.max(0,radius*radius-perpendicular));
+          if(along+half<0)continue;
+          const distance=Math.max(0,along-half);
+          if(distance<=travel&&distance<nearestDistance){nearest=target;nearestDistance=distance;}
+        }
+        shot.x+=shot.dx*travel;shot.y+=shot.dy*travel;shot.remaining-=travel;
+        if(nearest){nearest.captured=true;caught++;hits.push(nearest);shot.active=false;}
+        else if(shot.remaining<=0)shot.active=false;
+      }
+      return hits;
+    },
+    clear(){for(const s of shots)s.active=false;wait=0;}
+  };
+}
+
+/** Only active fish in the swim plane are eligible; scenery fish stay decorative. */
+function nearestShootableFish(x,y,targets,range=8){
+  let nearest=null,distanceSquared=range*range;
+  for(const target of targets){
+    if(target.captured)continue;
+    const distance=(target.x-x)**2+(target.y-y)**2;
+    if(distance<=distanceSquared){nearest=target;distanceSquared=distance;}
+  }
+  return nearest;
+}
+
+return {createSwim2D,underwaterPalette,createFishShooter,nearestShootableFish};
 })();
 const UnderwaterWorld=(()=>{
 /** Procedural underwater diorama. Shared geometry and instancing bound GPU cost.
@@ -512,11 +575,19 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const tailGeometry=new THREE.ConeGeometry(.35,.65,3);tailGeometry.rotateZ(Math.PI/2);
   const fishMaterials=['#86bbad','#c8ad6f','#548d9a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.55}));
   const fish=[];
+  const fishTargets=[];
+  const catchableMat=new THREE.MeshStandardMaterial({color:'#e9b55c',emissive:'#60421b',emissiveIntensity:.35,roughness:.5});
   for(let i=0;i<(compact?24:42);i++) {
-    const f=new THREE.Group();const mat=fishMaterials[i%3];
+    const catchable=i<12;
+    const f=new THREE.Group();const mat=catchable?catchableMat:fishMaterials[i%3];
     const body=new THREE.Mesh(fishGeometry,mat);body.scale.set(.46,.19,.13);f.add(body);
     const tail=new THREE.Mesh(tailGeometry,mat);tail.position.x=-.55;f.add(tail);
     f.userData={x:-28+(i*13)%56,y:-4-(i*7)%61,z:-5-(i%4)*3,phase:i*.71};root.add(f);fish.push(f);
+    if(catchable){
+      Object.assign(f.userData,{x:(i%2?-1:1)*(4+i%3),y:.6-i*5.7,z:.75});
+      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false};
+      f.userData.target=target;f.scale.setScalar(1.35);fishTargets.push(target);
+    }
   }
   // A fixed instance pool rises through the water; no per-frame allocations.
   const bubbleCount=compact?70:130;
@@ -530,13 +601,18 @@ function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const ambient=new THREE.HemisphereLight('#75d8df','#142e39',1.1);root.add(ambient);
   const sun=new THREE.DirectionalLight('#b7fff0',2.4);sun.position.set(-12,20,12);root.add(sun);
   const lamp=new THREE.PointLight('#b5ffff',6,12,1.6);root.add(lamp);
-  return {root, worldY, update(time,depth,x,lightOn){
+  return {root, worldY, fishTargets, update(time,depth,x,lightOn){
     for(let i=0;i<surfacePositions.count;i++)surfacePositions.setY(i,Math.sin(surfacePositions.getX(i)*.3+time*.7)*.18+Math.sin(surfacePositions.getZ(i)*.4-time*.5)*.12);
     surfacePositions.needsUpdate=true;surfaceGeometry.computeVertexNormals();
     caustics.position.x=Math.sin(time*.18)*.8;causticMat.opacity=.055+Math.sin(time*.7)*.015;
     rays.children.forEach((r,i)=>{r.rotation.z=-.22+Math.sin(time*.2+i)*.025;});
     kelp.forEach(k=>{k.rotation.z=Math.sin(time*.8+k.userData.phase)*.13;k.rotation.y=Math.sin(time*.35+k.userData.phase)*.3;});
-    fish.forEach(f=>{const d=f.userData;f.position.set(d.x+Math.sin(time*.18+d.phase)*6,d.y+Math.sin(time*.9+d.phase)*.3,d.z);f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;});
+    fish.forEach(f=>{
+      const d=f.userData;f.visible=!d.target?.captured;
+      f.position.set(d.x+Math.sin(time*.18+d.phase)*(d.target?1.5:6),d.y+Math.sin(time*.9+d.phase)*.3,d.z);
+      f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;
+      if(d.target){d.target.x=f.position.x;d.target.y=f.position.y;}
+    });
     for(let i=0;i<bubbleCount;i++){
       const by=-72+((i*13.23+time*(.5+i%4*.18))%74);
       dummy.position.set(-28+(i*17.7)%56+Math.sin(time*.7+i)*.15,by,-10+(i*2.3)%16);
@@ -1741,15 +1817,55 @@ heroShadow.rotation.x=-Math.PI/2;heroShadow.position.set(0,.07,3.5);scene.add(he
 
 // Phase 1: a self-contained side-view swim world. It deliberately lives beside
 // the land scene, so the existing WASM ABI and town maps remain unchanged.
-const swim2d=Underwater.createSwim2D({depthMax:240});
+const swim2d=Underwater.createSwim2D({depthMax:240,verticalSpeedMultiplier:1.6});
+const fishShooter=Underwater.createFishShooter({cooldown:.7,range:10});
 const underwaterRoot=new THREE.Group();underwaterRoot.name='Underwater demo';underwaterRoot.visible=false;scene.add(underwaterRoot);
 // Built on first entry so the land demo does not allocate underwater resources.
 let underwaterWorld=null;
 const underwaterItems=[];
+const underwaterShotMeshes=[];
+let underwaterAimMarker=null,underwaterCaptureRing=null,underwaterCaptureTime=0;
+let underwaterFeedback='';
+const swimStick={x:0,y:0,pointerId:null};
+function releaseSwimStick(){
+  swimStick.x=0;swimStick.y=0;swimStick.pointerId=null;
+  $('swim-stick-knob').style.transform='translate(0px,0px)';
+}
+function moveSwimStick(event){
+  if(event.pointerId!==swimStick.pointerId)return;
+  const bounds=$('swim-stick').getBoundingClientRect();
+  const radius=bounds.width*.35;
+  const x=(event.clientX-bounds.left-bounds.width/2)/radius;
+  const y=(event.clientY-bounds.top-bounds.height/2)/radius;
+  const length=Math.hypot(x,y),magnitude=Math.min(1,length);
+  const gain=length>.12?(magnitude-.12)/.88:0;
+  swimStick.x=length?x/length*gain:0;swimStick.y=length?y/length*gain:0;
+  $('swim-stick-knob').style.transform=`translate(${(length?x/length:0)*magnitude*50}px,${(length?y/length:0)*magnitude*50}px)`;
+}
+$('swim-stick').addEventListener('pointerdown',e=>{
+  if(!underwaterMode||swimStick.pointerId!==null)return;
+  e.preventDefault();swimStick.pointerId=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);moveSwimStick(e);
+});
+$('swim-stick').addEventListener('pointermove',e=>{if(swimStick.pointerId!==null){e.preventDefault();moveSwimStick(e);}});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])$('swim-stick').addEventListener(event,e=>{if(e.pointerId===swimStick.pointerId)releaseSwimStick();});
+window.addEventListener('blur',releaseSwimStick);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseSwimStick();});
 function prepareUnderwaterWorld(){
   if(underwaterWorld)return;
   underwaterWorld=UnderwaterWorld.createUnderwaterWorld(THREE,{compact:matchMedia('(max-width:700px)').matches});
   underwaterRoot.add(underwaterWorld.root);
+  const shotGeometry=new THREE.SphereGeometry(.11,8,6);
+  const shotMaterial=new THREE.MeshBasicMaterial({color:'#b9fff2'});
+  const trailGeometry=new THREE.BoxGeometry(.65,.045,.045);
+  for(const shot of fishShooter.shots){
+    const visual=new THREE.Group();visual.add(new THREE.Mesh(shotGeometry,shotMaterial));
+    const trail=new THREE.Mesh(trailGeometry,shotMaterial);trail.position.x=-.35;visual.add(trail);
+    visual.visible=false;underwaterRoot.add(visual);underwaterShotMeshes.push(visual);
+  }
+  underwaterAimMarker=new THREE.Mesh(new THREE.RingGeometry(.78,.81,32),new THREE.MeshBasicMaterial({color:'#a9efd3',transparent:true,opacity:.55,depthWrite:false}));
+  underwaterAimMarker.visible=false;underwaterRoot.add(underwaterAimMarker);
+  underwaterCaptureRing=new THREE.Mesh(new THREE.RingGeometry(.25,.32,24),new THREE.MeshBasicMaterial({color:'#ffe6a3',transparent:true,opacity:0,depthWrite:false}));
+  underwaterCaptureRing.visible=false;underwaterRoot.add(underwaterCaptureRing);
   const material=new THREE.MeshStandardMaterial({color:'#ffe6a3',emissive:'#e7a650',emissiveIntensity:1.8,roughness:.35});
   const geometry=new THREE.OctahedronGeometry(.3,0);
   for(let i=0;i<6;i++){
@@ -1767,13 +1883,14 @@ function updateUnderwaterHUD(){
   $('underwater-depth').textContent=`深度 ${depth}m`;
   $('underwater-items').textContent=`採集 ${underwaterItems.filter(i=>i.userData.got).length} / ${underwaterItems.length}`;
   $('underwater-light').textContent=underwaterLightOn?'ON':'OFF';
+  $('underwater-catch').textContent=`魚 ${fishShooter.caught} / ${underwaterWorld.fishTargets.length} · AUTO`;
   const nearest=underwaterItems.filter(i=>!i.userData.got).sort((a,b)=>Math.abs(a.userData.x-swim2d.state.x)+Math.abs(a.userData.depth-swim2d.state.depth)-Math.abs(b.userData.x-swim2d.state.x)-Math.abs(b.userData.depth-swim2d.state.depth))[0];
   const canCollect=Boolean(nearest&&Math.abs(nearest.userData.x-swim2d.state.x)<1.25&&Math.abs(nearest.userData.depth-swim2d.state.depth)<14);
   $('interact-btn').classList.toggle('active',underwaterMode&&canCollect);
   $('interact-btn').textContent='E · 採集';
   $('door-prompt').classList.toggle('active',underwaterMode&&canCollect);
   $('door-prompt').textContent=canCollect?'発光アイテム：Eキー／INTERACTで採集':'';
-  $('underwater-hint').textContent=underwaterHintUntil>animationTime?'採集しました。さらに深く探索できます':'W/S：潜降・浮上　A/D：遊泳　E：採集　F：ライト';
+  $('underwater-hint').textContent=underwaterHintUntil>animationTime?underwaterFeedback:'スティックで遊泳 · 近くの魚へ自動射撃';
   $('coords').textContent=`${swim2d.state.x.toFixed(2)}, ${(-swim2d.state.depth).toFixed(2)}, 0.00`;
   $('surface-state').textContent='SWIM 2D';$('char-state').textContent='swim';
 }
@@ -1794,6 +1911,8 @@ function enterUnderwater(){
   stage.classList.add('underwater-active');
   heroMaterial.color.set('#ffffff');heroMaterial.rotation=0;
   inputs.clear();mobileRun=false;
+  releaseSwimStick();
+  fishShooter.clear();underwaterShotMeshes.forEach(s=>{s.visible=false;});underwaterAimMarker.visible=false;underwaterCaptureRing.visible=false;
   cameraTarget.set(swim2d.state.x,underwaterWorld.worldY(swim2d.state.depth),0);
   $('underwater-hud').classList.add('active');$('underwater-overlay').classList.add('active');$('underwater-exit').classList.add('active');$('light-btn').style.display='block';$('jump-btn').style.display='none';$('attack-btn').style.display='none';$('interact-btn').classList.remove('active');$('underwater-demo').textContent='✓ UNDERWATER DEMO / 探索中';
   $('panel').hidden=true;$('panel-toggle').setAttribute('aria-expanded','false');$('panel-toggle').textContent='⚙ 設定を開く';
@@ -1807,6 +1926,7 @@ function exitUnderwater(){
   underwaterRoot.visible=false;hero.visible=true;heroShadow.visible=true;
   $('underwater-hud').classList.remove('active');$('underwater-overlay').classList.remove('active');$('underwater-exit').classList.remove('active');$('light-btn').style.display='none';$('jump-btn').style.display='block';$('attack-btn').style.display='block';$('interact-btn').classList.remove('active');$('door-prompt').classList.remove('active');$('underwater-demo').textContent='◎ UNDERWATER DEMO / 水中探索を開始';
   inputs.clear();mobileRun=false;
+  releaseSwimStick();
   scene.background.copy(underwaterReturnView.background);scene.fog.color.copy(underwaterReturnView.fog);scene.fog.density=underwaterReturnView.density;
   heroMaterial.color.copy(underwaterReturnView.heroColor);heroMaterial.rotation=0;
   camera.fov=underwaterReturnView.fov;camera.updateProjectionMatrix();
@@ -1815,10 +1935,12 @@ function exitUnderwater(){
 }
 function underwaterInteract(){
   const nearest=underwaterItems.filter(i=>!i.userData.got).sort((a,b)=>a.position.distanceTo(hero.position)-b.position.distanceTo(hero.position))[0];
-  if(nearest && Math.abs(nearest.userData.x-swim2d.state.x)<1.25 && Math.abs(nearest.userData.depth-swim2d.state.depth)<14){nearest.userData.got=true;nearest.visible=false;underwaterHintUntil=animationTime+2.2;updateUnderwaterHUD();}
+  if(nearest && Math.abs(nearest.userData.x-swim2d.state.x)<1.25 && Math.abs(nearest.userData.depth-swim2d.state.depth)<14){nearest.userData.got=true;nearest.visible=false;underwaterFeedback='採集しました。さらに深く探索できます';underwaterHintUntil=animationTime+2.2;updateUnderwaterHUD();}
 }
 function stepUnderwater(dt){
-  const state=swim2d.step({left:inputs.has('a')||inputs.has('arrowleft'),right:inputs.has('d')||inputs.has('arrowright'),up:inputs.has('w')||inputs.has('arrowup'),down:inputs.has('s')||inputs.has('arrowdown'),boost:inputs.has('shift')||mobileRun},dt);
+  const axisX=swimStick.pointerId!==null?swimStick.x:Number(inputs.has('d')||inputs.has('arrowright'))-Number(inputs.has('a')||inputs.has('arrowleft'));
+  const axisY=swimStick.pointerId!==null?swimStick.y:Number(inputs.has('s')||inputs.has('arrowdown'))-Number(inputs.has('w')||inputs.has('arrowup'));
+  const state=swim2d.step({axisX,axisY,boost:inputs.has('shift')||mobileRun},dt);
   state.x=Math.max(-22,Math.min(22,state.x));
   const y=underwaterWorld.worldY(state.depth);
   hero.position.set(state.x,y,.75);hero.visible=true;
@@ -1832,7 +1954,28 @@ function stepUnderwater(dt){
   const distance=camera.aspect<.8?26:19;
   camera.position.set(cameraTarget.x,cameraTarget.y+1.5,distance);camera.lookAt(cameraTarget.x,cameraTarget.y,0);
   underwaterItems.forEach(item=>{item.rotation.y=animationTime*.6;});
-  setUnderwaterLighting();updateUnderwaterHUD();
+  setUnderwaterLighting();
+  const originY=y+.65;
+  const aim=Underwater.nearestShootableFish(state.x,originY,underwaterWorld.fishTargets,8);
+  if(aim)fishShooter.fire(state.x,originY,aim.x-state.x,aim.y-originY);
+  const hits=fishShooter.step(dt,underwaterWorld.fishTargets);
+  if(hits.length){
+    const hit=hits.at(-1);underwaterFeedback=`魚を捕獲！ ${fishShooter.caught}匹`;
+    underwaterHintUntil=animationTime+2;underwaterCaptureTime=animationTime;
+    underwaterCaptureRing.position.set(hit.x,hit.y,1);underwaterCaptureRing.visible=true;
+  }
+  underwaterAimMarker.visible=Boolean(aim&&!aim.captured);
+  if(aim)underwaterAimMarker.position.set(aim.x,aim.y,1);
+  fishShooter.shots.forEach((shot,i)=>{
+    const visual=underwaterShotMeshes[i];visual.visible=shot.active;
+    if(shot.active){visual.position.set(shot.x,shot.y,.9);visual.rotation.z=Math.atan2(shot.dy,shot.dx);}
+  });
+  if(underwaterCaptureRing.visible){
+    const age=(animationTime-underwaterCaptureTime)/.55;
+    underwaterCaptureRing.visible=age<1;underwaterCaptureRing.scale.setScalar(1+age*4);
+    underwaterCaptureRing.material.opacity=Math.max(0,1-age);
+  }
+  updateUnderwaterHUD();
   try{postProcessing.render();}catch{renderer.render(scene,camera);}
   frameSamples++;
   const now=performance.now();if(now-lastShown>500){$('fps').textContent=Math.round(frameSamples*1000/(now-lastShown));frameSamples=0;lastShown=now;}

@@ -106,11 +106,19 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const tailGeometry=new THREE.ConeGeometry(.35,.65,3);tailGeometry.rotateZ(Math.PI/2);
   const fishMaterials=['#86bbad','#c8ad6f','#548d9a'].map(color=>new THREE.MeshStandardMaterial({color,roughness:.55}));
   const fish=[];
+  const fishTargets=[];
+  const catchableMat=new THREE.MeshStandardMaterial({color:'#e9b55c',emissive:'#60421b',emissiveIntensity:.35,roughness:.5});
   for(let i=0;i<(compact?24:42);i++) {
-    const f=new THREE.Group();const mat=fishMaterials[i%3];
+    const catchable=i<12;
+    const f=new THREE.Group();const mat=catchable?catchableMat:fishMaterials[i%3];
     const body=new THREE.Mesh(fishGeometry,mat);body.scale.set(.46,.19,.13);f.add(body);
     const tail=new THREE.Mesh(tailGeometry,mat);tail.position.x=-.55;f.add(tail);
     f.userData={x:-28+(i*13)%56,y:-4-(i*7)%61,z:-5-(i%4)*3,phase:i*.71};root.add(f);fish.push(f);
+    if(catchable){
+      Object.assign(f.userData,{x:(i%2?-1:1)*(4+i%3),y:.6-i*5.7,z:.75});
+      const target={id:i,x:f.userData.x,y:f.userData.y,radius:.65,captured:false};
+      f.userData.target=target;f.scale.setScalar(1.35);fishTargets.push(target);
+    }
   }
   // A fixed instance pool rises through the water; no per-frame allocations.
   const bubbleCount=compact?70:130;
@@ -124,13 +132,18 @@ export function createUnderwaterWorld(THREE, {compact = false} = {}) {
   const ambient=new THREE.HemisphereLight('#75d8df','#142e39',1.1);root.add(ambient);
   const sun=new THREE.DirectionalLight('#b7fff0',2.4);sun.position.set(-12,20,12);root.add(sun);
   const lamp=new THREE.PointLight('#b5ffff',6,12,1.6);root.add(lamp);
-  return {root, worldY, update(time,depth,x,lightOn){
+  return {root, worldY, fishTargets, update(time,depth,x,lightOn){
     for(let i=0;i<surfacePositions.count;i++)surfacePositions.setY(i,Math.sin(surfacePositions.getX(i)*.3+time*.7)*.18+Math.sin(surfacePositions.getZ(i)*.4-time*.5)*.12);
     surfacePositions.needsUpdate=true;surfaceGeometry.computeVertexNormals();
     caustics.position.x=Math.sin(time*.18)*.8;causticMat.opacity=.055+Math.sin(time*.7)*.015;
     rays.children.forEach((r,i)=>{r.rotation.z=-.22+Math.sin(time*.2+i)*.025;});
     kelp.forEach(k=>{k.rotation.z=Math.sin(time*.8+k.userData.phase)*.13;k.rotation.y=Math.sin(time*.35+k.userData.phase)*.3;});
-    fish.forEach(f=>{const d=f.userData;f.position.set(d.x+Math.sin(time*.18+d.phase)*6,d.y+Math.sin(time*.9+d.phase)*.3,d.z);f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;});
+    fish.forEach(f=>{
+      const d=f.userData;f.visible=!d.target?.captured;
+      f.position.set(d.x+Math.sin(time*.18+d.phase)*(d.target?1.5:6),d.y+Math.sin(time*.9+d.phase)*.3,d.z);
+      f.rotation.y=Math.cos(time*.18+d.phase)>0?0:Math.PI;f.rotation.z=Math.sin(time*4+d.phase)*.035;
+      if(d.target){d.target.x=f.position.x;d.target.y=f.position.y;}
+    });
     for(let i=0;i<bubbleCount;i++){
       const by=-72+((i*13.23+time*(.5+i%4*.18))%74);
       dummy.position.set(-28+(i*17.7)%56+Math.sin(time*.7+i)*.15,by,-10+(i*2.3)%16);
